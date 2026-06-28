@@ -123,8 +123,8 @@ def test_build_t0_license_notes_present():
     assert "MIT" in m.tier_license_notes["T0"]
 
 
-def test_build_gated_tiers_produce_no_entries():
-    """T3/T4/T5 (non-redistributable) yield zero entries — no content embedded."""
+def test_build_tiers_without_adapter_produce_no_entries():
+    """T3/T4 (NC/gated) and T5 (adapter not implemented) all yield zero entries."""
     m = build_suite(tiers=["T3", "T4", "T5"], seed=42)
     assert len(m.entries) == 0
     # But license notes ARE recorded
@@ -133,14 +133,23 @@ def test_build_gated_tiers_produce_no_entries():
     assert "T5" in m.tier_license_notes
 
 
-def test_build_gated_license_notes_say_nc():
-    """License notes for NC/gated tiers mention non-commercial or restricted."""
-    m = build_suite(tiers=["T3", "T4", "T5"], seed=42)
-    for tier in ("T3", "T4", "T5"):
+def test_build_nc_license_notes_say_nc():
+    """License notes for NC/gated tiers (T3/T4) mention non-commercial or gated."""
+    m = build_suite(tiers=["T3", "T4"], seed=42)
+    for tier in ("T3", "T4"):
         note = m.tier_license_notes[tier].lower()
-        assert any(kw in note for kw in ("non-commercial", "gated", "nc", "unconfirmed")), (
-            f"License note for {tier} does not mention restriction: {note!r}"
+        assert any(kw in note for kw in ("non-commercial", "gated", "nc")), (
+            f"License note for {tier} does not mention NC/gated restriction: {note!r}"
         )
+
+
+def test_build_t5_license_is_apache2():
+    """T5 (Hermes) is Apache 2.0 with attribution for two sources."""
+    m = build_suite(tiers=["T5"], seed=42)
+    note = m.tier_license_notes["T5"].lower()
+    assert "apache" in note, f"T5 license note should mention Apache: {note!r}"
+    assert "glaive" in note, f"T5 license note should credit glaive-function-calling-5k: {note!r}"
+    assert "attribution" in note, f"T5 license note should mention attribution: {note!r}"
 
 
 def test_build_bfcl_without_data_dir_produces_no_entries():
@@ -149,8 +158,8 @@ def test_build_bfcl_without_data_dir_produces_no_entries():
     assert len(m.entries_for_tier("T1")) == 0
 
 
-def test_build_manifest_contains_no_raw_text_for_nc_tiers():
-    """Manifest JSON for NC/gated tiers stores no query, tools, or answer content."""
+def test_build_manifest_contains_no_raw_text_for_entry_free_tiers():
+    """Manifest JSON for tiers that produce no entries contains no raw content."""
     m = build_suite(tiers=["T3", "T4", "T5"], seed=42)
     raw = json.dumps(m.to_dict())
     # These should not appear in the manifest for NC tiers

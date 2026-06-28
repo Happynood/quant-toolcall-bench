@@ -63,7 +63,7 @@ hf upload happynood/quantcall-suite <schemas.json> data/schemas/tool_schemas.jso
 | T1/T2/T6 | BFCL (gorilla) | Apache 2.0 | manifest entries only (manual download required) |
 | T3 | ToolACE | CC-BY-NC 4.0 | manifest-only, no redistribution |
 | T4 | xLAM (Salesforce) | NC + gated | manifest-only, no redistribution |
-| T5 | Hermes | Unconfirmed | manifest-only until license clarified |
+| T5 | Hermes (NousResearch/teknium) | Apache 2.0 (bundles glaive-fc-5k; credit both) | manifest-only by design (adapter not yet implemented) |
 
 ## 3. Upload results dataset
 

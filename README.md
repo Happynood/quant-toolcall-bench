@@ -64,9 +64,9 @@ quantcall run --config configs/smoke.yaml --output results/smoke.json
 | T1 | BFCL simple + multiple | Manual JSONL download from Berkeley |
 | T2 | BFCL parallel | Manual JSONL download |
 | T6 | BFCL irrelevance | Manual JSONL download |
-| T3 | ToolACE (`Team-ACE/ToolACE`) | HF dataset |
-| T4 | xLAM ungated mirror (`minpeter/xlam-function-calling-60k-parsed`) | HF dataset; gated Salesforce source behind `use_gated_xlam: true` |
-| T5 | Hermes function-calling v1 | HF dataset |
+| T3 | ToolACE (`Team-ACE/ToolACE`) | CC-BY-NC 4.0 — manifest-only, no redistribution |
+| T4 | xLAM ungated mirror (`minpeter/xlam-function-calling-60k-parsed`) | NC/gated — manifest-only; gated Salesforce source behind `use_gated_xlam: true` |
+| T5 | Hermes function-calling v1 (`teknium/hermes-function-calling-v1`) | Apache 2.0; bundles glaive-function-calling-5k (credit both); reconstructed from source via manifest (not redistributed) |
 
 ---
 

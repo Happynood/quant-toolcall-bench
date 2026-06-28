@@ -71,9 +71,10 @@ def materialize_suite(
     Raises ImportError for tiers that require optional deps not installed.
     Raises KeyError when a referenced instance cannot be located in the source.
 
-    For T3/T4/T5 (non-redistributable tiers): no entries are expected in the
-    manifest; this function returns an empty list for those tiers unless the
-    caller has added entries manually after verifying licensing.
+    For T3/T4 (NC/gated tiers): no entries are expected in the manifest; raises
+    RuntimeError if entries are somehow present to prevent silent redistribution.
+    T5 (Apache 2.0) produces no entries yet because its adapter is not implemented,
+    but entries would be allowed when the adapter is ready.
     """
     instances: list[NormalizedInstance] = []
 
@@ -92,15 +93,15 @@ def materialize_suite(
                 raise ValueError(f"Tier {tier} entries present but bfcl_data_dir not supplied")
             instances.extend(_materialize_bfcl(tier_entries, bfcl_data_dir, cats))
 
-    # T3, T4, T5: non-redistributable. Entries should not be in manifest.
-    # If somehow present (user added manually), fail loudly rather than silently skip.
-    for tier in ("T3", "T4", "T5"):
+    # T3, T4: NC/gated — must not be redistributed. Fail loudly if entries present.
+    # T5 is Apache 2.0; entries are allowed once its adapter is implemented.
+    for tier in ("T3", "T4"):
         gated_entries = manifest.entries_for_tier(tier)
         if gated_entries:
             raise RuntimeError(
                 f"Manifest contains {len(gated_entries)} entries for tier {tier} "
                 f"({manifest.tier_license_notes.get(tier, 'unknown license')}). "
-                "This tier must not be redistributed. Remove these entries."
+                "This tier is NC/gated and must not be redistributed. Remove these entries."
             )
 
     return instances

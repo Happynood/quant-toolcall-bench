@@ -149,7 +149,7 @@ def suite_group() -> None:
 
 @suite_group.command("build")
 @click.option("--tiers", default="T0", help="Comma-separated tier list (T0,T1,…)")
-@click.option("--sample-size", default=100, show_default=True, help="Instances per tier")
+@click.option("--sample-size", default=200, show_default=True, help="Instances per tier")
 @click.option("--seed", default=42, show_default=True)
 @click.option(
     "--bfcl-data-dir",
@@ -173,8 +173,9 @@ def suite_build_cmd(
 ) -> None:
     """Sample N instances per tier and write suite_manifest.json.
 
-    Non-redistributable tiers (T3/T4/T5) are recorded in the license notes
-    but produce no entries.  BFCL tiers (T1/T2/T6) require --bfcl-data-dir.
+    NC/gated tiers (T3/T4) are recorded in license notes but produce no entries.
+    T5 (Apache 2.0) also produces no entries yet — adapter not yet implemented.
+    BFCL tiers (T1/T2/T6) require --bfcl-data-dir.
     """
     from quantcall.suite.build import build_suite
 

@@ -25,8 +25,10 @@ MANIFEST_VERSION = "1"
 #              entries from local data when present; no HF upload of raw content
 #  T3  – ToolACE (CC-BY-NC 4.0) — non-commercial; manifest-only, no redistrib
 #  T4  – xLAM Salesforce (Research-only, non-commercial, gated) — manifest-only
-#  T5  – Hermes function-calling (license unconfirmed) — manifest-only until
-#         clarified; treat as non-redistributable
+#  T5  – Hermes function-calling v1 (Apache 2.0, NousResearch/teknium). The
+#         dataset bundles glaive-function-calling-5k data; credit both sources.
+#         Redistribution with attribution is permitted.  Manifest-only in this
+#         suite by design (adapter not yet implemented), not by license restriction.
 # ---------------------------------------------------------------------------
 
 TIER_LICENSE_NOTES: dict[str, str] = {
@@ -37,8 +39,9 @@ TIER_LICENSE_NOTES: dict[str, str] = {
     "T3": "CC-BY-NC 4.0 (Team-ACE/ToolACE). Non-commercial — manifest-only, no redistribution.",
     "T4": "Research/non-commercial + gated (Salesforce/xlam-function-calling-60k). "
     "Manifest-only, no redistribution.",
-    "T5": "License unconfirmed (teknium/hermes-function-calling-v1). "
-    "Treated as non-redistributable until verified.",
+    "T5": "Apache 2.0 (NousResearch/teknium/hermes-function-calling-v1; bundles "
+    "glaive-function-calling-5k — credit both sources). "
+    "Redistribution with attribution permitted. Manifest-only in this suite by design.",
     "T6": "Apache 2.0 (gorilla/BFCL). Same as T1.",
 }
 
@@ -141,7 +144,7 @@ def _build_bfcl(
 
 def build_suite(
     tiers: list[str] | None = None,
-    sample_size: int = 100,
+    sample_size: int = 200,
     seed: int = 42,
     bfcl_data_dir: str | Path | None = None,
 ) -> SuiteManifest:
@@ -176,11 +179,14 @@ def build_suite(
             }
             manifest.entries.extend(_build_bfcl(cat_map[tier], tier, sample_size, seed, bfcl_dir))
 
-        elif tier in ("T3", "T4", "T5"):
-            # Non-redistributable — record provenance placeholder only.
-            # Actual hashes are filled in by materialize() when the user has
-            # local access to the source dataset.
+        elif tier in ("T3", "T4"):
+            # Non-redistributable (CC-BY-NC / gated) — record license note only; no entries.
             manifest.tier_license_notes[tier] = TIER_LICENSE_NOTES.get(tier, "Unknown")
-            # No entries added: callers must run materialize() with HF access.
+
+        elif tier == "T5":
+            # Apache 2.0 — redistribution permitted.  Adapter not yet implemented;
+            # record license note only until the HF adapter is added.
+            manifest.tier_license_notes[tier] = TIER_LICENSE_NOTES.get(tier, "Unknown")
+            # No entries added: add _build_t5() when the HF adapter is ready.
 
     return manifest
