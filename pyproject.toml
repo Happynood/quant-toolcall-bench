@@ -23,6 +23,11 @@ transformers = [
 ]
 llama-cpp = [
     "llama-cpp-python>=0.2",
+    # CUDA runtime libs for systems where only the driver (not CUDA toolkit) is installed.
+    # The pre-built CUDA wheel for llama-cpp-python links against libcudart.so.12 which
+    # is provided here; ignored on CPU-only machines.
+    "nvidia-cuda-runtime-cu12; sys_platform == 'linux'",
+    "nvidia-cublas-cu12; sys_platform == 'linux'",
 ]
 vllm = [
     "vllm>=0.4",

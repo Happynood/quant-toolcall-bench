@@ -321,16 +321,22 @@ def _load_instances(cfg: QuantCallConfig) -> list[Any]:
             try:
                 from quantcall.datasets.bfcl import load_bfcl  # type: ignore[import]
 
-                instances.extend(load_bfcl(categories=["simple", "multiple"]))
-            except ImportError:
-                click.echo("T1 requires BFCL data; skipping.", err=True)
+                instances.extend(
+                    load_bfcl(categories=["simple_python", "multiple"], data_dir=cfg.bfcl_data_dir)
+                )
+            except (ImportError, FileNotFoundError) as exc:
+                click.echo(f"T1 requires BFCL data in {cfg.bfcl_data_dir!r}: {exc}", err=True)
         elif tier == "T2":
             try:
                 from quantcall.datasets.bfcl import load_bfcl  # type: ignore[import]
 
-                instances.extend(load_bfcl(categories=["parallel", "parallel_multiple"]))
-            except ImportError:
-                click.echo("T2 requires BFCL data; skipping.", err=True)
+                instances.extend(
+                    load_bfcl(
+                        categories=["parallel", "parallel_multiple"], data_dir=cfg.bfcl_data_dir
+                    )
+                )
+            except (ImportError, FileNotFoundError) as exc:
+                click.echo(f"T2 requires BFCL data in {cfg.bfcl_data_dir!r}: {exc}", err=True)
         elif tier == "T3":
             try:
                 from quantcall.datasets.toolace import load_toolace  # type: ignore[import]
@@ -356,9 +362,9 @@ def _load_instances(cfg: QuantCallConfig) -> list[Any]:
             try:
                 from quantcall.datasets.bfcl import load_bfcl  # type: ignore[import]
 
-                instances.extend(load_bfcl(categories=["irrelevance"]))
-            except ImportError:
-                click.echo("T6 requires BFCL data; skipping.", err=True)
+                instances.extend(load_bfcl(categories=["irrelevance"], data_dir=cfg.bfcl_data_dir))
+            except (ImportError, FileNotFoundError) as exc:
+                click.echo(f"T6 requires BFCL data in {cfg.bfcl_data_dir!r}: {exc}", err=True)
         else:
             click.echo(f"Unknown tier {tier!r}; skipping.", err=True)
 

@@ -15,6 +15,7 @@ class InstanceResult:
     category: str
     expects_call: bool
     predicted_calls: list[ParsedCall]
+    ground_truth_names: frozenset[str]
     parse_succeeded: bool
     schema_valid: bool
     names_exact_match: bool
@@ -104,6 +105,7 @@ def evaluate_instance(
         category=instance.category,
         expects_call=instance.expects_call,
         predicted_calls=predicted_calls,
+        ground_truth_names=frozenset(c.name for c in instance.ground_truth_calls),
         parse_succeeded=parse_succeeded,
         schema_valid=schema_valid,
         names_exact_match=names_match,
@@ -139,12 +141,10 @@ def compute_metrics(
     recalls = []
     for r in instance_results:
         pred_names = {c.name for c in r.predicted_calls}
-        gt_names: set[str] = set()
-        if r.expects_call:
-            gt_names = {c.name for c in r.predicted_calls}
+        gt_names: set[str] = set(r.ground_truth_names)
 
-        if r.predicted_calls:
-            p = len(pred_names & gt_names) / len(pred_names) if pred_names else 0.0
+        if pred_names:
+            p = len(pred_names & gt_names) / len(pred_names)
         else:
             p = 1.0 if not gt_names else 0.0
         if gt_names:
