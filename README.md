@@ -19,14 +19,19 @@ A reproducible benchmark measuring the degradation of function-calling / structu
 ## Quickstart
 
 ```bash
-# Install
-pip install quantcall   # or: uv pip install quantcall
+# Install (Python 3.11+)
+pip install uv
+git clone https://github.com/Happynood/quant-toolcall-bench
+cd quant-toolcall-bench
+uv sync
 
-# Run against a local Ollama / llama.cpp server (zero-GPU path)
-quantcall run --config configs/smoke.yaml
+# Verify the installation (no GPU needed)
+make verify
 
-# Full quant sweep (requires a downloaded GGUF model)
-quantcall sweep --model path/to/model.gguf --quants Q4_K_M,Q5_K_M,Q8_0,fp16
+# Run the smoke evaluation (mock backend)
+quantcall run --config configs/smoke.yaml --output results/smoke.json
+
+# Real GPU evaluation — see docs/RUN_REAL.md for exact commands
 ```
 
 ---
@@ -39,28 +44,80 @@ quantcall sweep --model path/to/model.gguf --quants Q4_K_M,Q5_K_M,Q8_0,fp16
 | **TSA** | Tool-Selection Accuracy — correct tool names selected? |
 | **AC** | Argument Correctness — correct argument values (AST-match)? |
 | **Abst** | Abstention Accuracy — does the model correctly *not* call when irrelevant? |
-| **FCR** | Function-Calling Reliability — weighted aggregate |
-| **ΔFCR** | Degradation vs fp16 baseline |
+| **FCR** | Function-Calling Reliability — weighted aggregate (0.25 × SVR + TSA + AC + Abst) |
+| **ΔFCR** | Absolute degradation vs fp16 baseline |
+| **CDR** | Constrained-Decoding Recovery — fraction of degradation recovered by GBNF/xgrammar |
+| **η** | Efficiency — FCR / peak VRAM (GB) |
+
+---
+
+## Dataset Tiers
+
+| Tier | Source | Notes |
+|------|--------|-------|
+| T0 | In-repo smoke (10 instances) | Always available, no download |
+| T1 | BFCL simple + multiple | Manual JSONL download from Berkeley |
+| T2 | BFCL parallel | Manual JSONL download |
+| T6 | BFCL irrelevance | Manual JSONL download |
+| T3 | ToolACE (`Team-ACE/ToolACE`) | HF dataset |
+| T4 | xLAM ungated (`Salesforce/xlam-function-calling-60k`) | HF dataset |
+| T5 | Hermes function-calling v1 | HF dataset |
 
 ---
 
 ## Supported Backends
 
-| Backend | Quant formats | Status |
-|---------|--------------|--------|
-| mock | — | ✓ (CI/plumbing) |
-| llama-cpp | GGUF Q4/Q5/Q8 | Phase 1 |
-| transformers | fp16, 8-bit, 4-bit | Phase 3 |
-| vllm | AWQ, GPTQ | Phase 3 |
-| openai-compatible | any | Phase 3 |
+| Backend key | Quant formats | Install |
+|-------------|--------------|---------|
+| `mock` | — | built-in |
+| `llama-cpp` | GGUF Q4/Q5/Q8 | `uv sync --extra llama-cpp` |
+| `transformers` | fp16, 8-bit, 4-bit (bitsandbytes) | `uv sync --extra transformers` |
+| `vllm` | AWQ, GPTQ | `uv sync --extra vllm` |
+| `openai` | any (remote endpoint) | `uv sync --extra openai` |
 
 ---
 
-## Submit Your Model
+## Config Reference
+
+```yaml
+backend: llama-cpp          # mock | llama-cpp | transformers | vllm | openai
+model: /path/to/model.gguf  # model path or HF repo ID
+quant: Q4_K_M               # fp16 | Q8_0 | Q5_K_M | Q4_K_M | AWQ | GPTQ
+tiers: [T1, T6]             # dataset tiers to evaluate
+sample_size: 200            # instances per tier (null = all)
+seed: 42
+decoding: free              # free | gbnf | xgrammar | outlines
+```
+
+---
+
+## Verification Gate
+
+```bash
+make verify
+# Runs: ruff check, ruff format --check, pyright, pytest -q, smoke e2e
+```
+
+---
+
+## Reproducing Results
+
+Every `result.json` includes a manifest:
+
+- Git commit SHA and dirty flag
+- Config SHA-256
+- Dataset sample SHA-256
+- Hardware fingerprint (GPU name, driver, CUDA version)
+
+---
+
+## Real GPU Evaluation
+
+See [docs/RUN_REAL.md](docs/RUN_REAL.md) for exact GPU commands.
+
+## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the PR-based submission flow.
-
----
 
 ## Citation
 
@@ -71,3 +128,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the PR-based submission flow.
   url    = {https://github.com/Happynood/quant-toolcall-bench}
 }
 ```
+
+## License
+
+MIT

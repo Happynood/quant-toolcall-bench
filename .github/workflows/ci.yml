@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        run: pip install uv==0.4.30
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Type check (pyright)
+        run: uv run pyright
+
+      - name: Unit + integration tests
+        run: uv run pytest -q
+
+      - name: Smoke run
+        run: |
+          uv run quantcall run \
+            --config configs/smoke.yaml \
+            --output /tmp/qc-smoke-result.json \
+            --manifest /tmp/qc-smoke-manifest.json
+          python - <<'EOF'
+          import json, sys
+          d = json.load(open("/tmp/qc-smoke-result.json"))
+          assert "svr" in d and "manifest" in d, "smoke result missing fields"
+          print("smoke OK")
+          EOF

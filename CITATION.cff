@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use QuantCall in your research, please cite it as below."
+type: software
+title: "QuantCall: Benchmarking Tool-Calling Reliability Under Quantization"
+version: 0.1.0
+date-released: "2026-06-28"
+repository-code: "https://github.com/Happynood/quant-toolcall-bench"
+license: MIT
+abstract: >
+  QuantCall is a reproducible benchmark for measuring how quantization
+  and inference backends degrade LLM function-calling and structured-output
+  reliability. It produces structured metrics (SVR, TSA, AC, Abstention,
+  FCR, ΔFCR, CDR, η) from real model runs with full reproducibility manifests.
