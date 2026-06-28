@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+from typing import Any
+
+_PREAMBLE = """\
+# JSON grammar for constrained decoding
+ws ::= [ \\t\\n]*
+true ::= "true"
+false ::= "false"
+null ::= "null"
+number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [+-]? [0-9]+)?
+integer ::= "-"? ([0-9] | [1-9] [0-9]*)
+string ::= "\\"" ([^"\\\\] | "\\\\" .)* "\\""
+array ::= "[" ws (value (ws "," ws value)*)? ws "]"
+value ::= string | number | object-any | array | true | false | null
+object-any ::= "{" ws (string ws ":" ws value (ws "," ws string ws ":" ws value)*)? ws "}"
+"""
+
+
+def _schema_rule_name(path: str) -> str:
+    return path.replace(".", "-").replace("[", "").replace("]", "").replace("/", "-") or "root"
+
+
+def _compile_type(schema: dict[str, Any], path: str, rules: dict[str, str]) -> str:
+    """Recursively compile a JSON Schema node into GBNF rule names. Returns the rule name."""
+    schema_type = schema.get("type", "any")
+    enum_vals = schema.get("enum")
+
+    if enum_vals is not None:
+        rule_name = _schema_rule_name(path)
+        choices = " | ".join(f'"{v}"' for v in enum_vals)
+        rules[rule_name] = f"{choices}"
+        return rule_name
+
+    if schema_type == "string":
+        return "string"
+    if schema_type in ("number", "float"):
+        return "number"
+    if schema_type == "integer":
+        return "integer"
+    if schema_type == "boolean":
+        return '( "true" | "false" )'
+    if schema_type == "null":
+        return "null"
+    if schema_type == "array":
+        items = schema.get("items", {})
+        item_rule = _compile_type(items, path + ".item", rules)
+        rule_name = _schema_rule_name(path) + "-array"
+        rules[rule_name] = f'"[" ws ({item_rule} (ws "," ws {item_rule})*)? ws "]"'
+        return rule_name
+    if schema_type == "object" or "properties" in schema:
+        return _compile_object(schema, path, rules)
+
+    return "value"
+
+
+def _compile_object(schema: dict[str, Any], path: str, rules: dict[str, str]) -> str:
+    properties: dict[str, Any] = schema.get("properties", {})
+    required: list[str] = schema.get("required", [])
+
+    rule_name = _schema_rule_name(path)
+    if not properties:
+        rules[rule_name] = '"{" ws "}"'
+        return rule_name
+
+    prop_rules: list[tuple[bool, str]] = []
+    for prop_name, prop_schema in properties.items():
+        child_path = f"{path}.{prop_name}"
+        value_rule = _compile_type(prop_schema, child_path, rules)
+        pair = f'"\\"" "{prop_name}" "\\"" ws ":" ws {value_rule}'
+        prop_rules.append((prop_name in required, pair))
+
+    required_parts = [pair for is_req, pair in prop_rules if is_req]
+    optional_parts = [pair for is_req, pair in prop_rules if not is_req]
+
+    if required_parts and optional_parts:
+        required_seq = ' ws "," ws '.join(required_parts)
+        optional_seq = " ".join(f'(ws "," ws {p})?' for p in optional_parts)
+        body = f"{required_seq} {optional_seq}"
+    elif required_parts:
+        body = ' ws "," ws '.join(required_parts)
+    else:
+        all_parts = [pair for _, pair in prop_rules]
+        body = (
+            f"({all_parts[0]}" + "".join(f' (ws "," ws {p})?' for p in all_parts[1:]) + ")?"
+            if all_parts
+            else ""
+        )
+
+    rules[rule_name] = '"{"' + f" ws {body} ws " + '"}"'
+    return rule_name
+
+
+def gbnf_from_schema(schema: dict[str, Any]) -> str:
+    """Generate a GBNF grammar string constraining output to a given JSON Schema."""
+    rules: dict[str, str] = {}
+    root_type = _compile_type(schema, "root", rules)
+
+    if "root" not in rules:
+        if root_type == "root":
+            rules["root"] = '"{" ws "}"'
+        else:
+            rules["root"] = root_type
+
+    lines = [_PREAMBLE]
+    for name, body in rules.items():
+        lines.append(f"{name} ::= {body}")
+
+    return "\n".join(lines) + "\n"
