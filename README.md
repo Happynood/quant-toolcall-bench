@@ -3,6 +3,7 @@
 [![CI](https://github.com/Happynood/quant-toolcall-bench/actions/workflows/ci.yml/badge.svg)](https://github.com/Happynood/quant-toolcall-bench/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Leaderboard](https://img.shields.io/badge/🤗%20Space-Leaderboard-yellow)](https://huggingface.co/spaces/happynood/quantcall-leaderboard)
 
 > *"You quantized your model to fit VRAM. Did you also quietly break its ability to call tools? Find out — on your own hardware, in one command."*
 
@@ -114,6 +115,14 @@ Every `result.json` includes a manifest:
 - Hardware fingerprint (GPU name, driver, CUDA version)
 
 ---
+
+## HuggingFace
+
+| Artifact | URL |
+|----------|-----|
+| Eval suite (versioned samples) | [happynood/quantcall-suite](https://huggingface.co/datasets/happynood/quantcall-suite) |
+| Results dataset (submit your runs) | [happynood/quantcall-results](https://huggingface.co/datasets/happynood/quantcall-results) |
+| Live leaderboard | [happynood/quantcall-leaderboard](https://huggingface.co/spaces/happynood/quantcall-leaderboard) |
 
 ## Real GPU Evaluation
 
