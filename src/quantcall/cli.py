@@ -139,6 +139,107 @@ def leaderboard_cmd(
     click.echo("[leaderboard stub] Implementation in Phase 1.")
 
 
+# ── Suite commands ────────────────────────────────────────────────────────────
+
+
+@main.group("suite")
+def suite_group() -> None:
+    """Build and materialize the deterministic evaluation suite."""
+
+
+@suite_group.command("build")
+@click.option("--tiers", default="T0", help="Comma-separated tier list (T0,T1,…)")
+@click.option("--sample-size", default=100, show_default=True, help="Instances per tier")
+@click.option("--seed", default=42, show_default=True)
+@click.option(
+    "--bfcl-data-dir",
+    default=None,
+    type=click.Path(),
+    help="Local directory containing BFCL JSONL files (required for T1/T2/T6)",
+)
+@click.option(
+    "--output",
+    "output_path",
+    default="suite_manifest.json",
+    show_default=True,
+    type=click.Path(),
+)
+def suite_build_cmd(
+    tiers: str,
+    sample_size: int,
+    seed: int,
+    bfcl_data_dir: str | None,
+    output_path: str,
+) -> None:
+    """Sample N instances per tier and write suite_manifest.json.
+
+    Non-redistributable tiers (T3/T4/T5) are recorded in the license notes
+    but produce no entries.  BFCL tiers (T1/T2/T6) require --bfcl-data-dir.
+    """
+    from quantcall.suite.build import build_suite
+
+    tier_list = [t.strip() for t in tiers.split(",") if t.strip()]
+    manifest = build_suite(
+        tiers=tier_list,
+        sample_size=sample_size,
+        seed=seed,
+        bfcl_data_dir=bfcl_data_dir,
+    )
+    manifest.save(output_path)
+    click.echo(f"Suite manifest written to {output_path}")
+    click.echo(f"  tiers         : {tier_list}")
+    click.echo(f"  total entries : {len(manifest.entries)}")
+    for tier in tier_list:
+        n = len(manifest.entries_for_tier(tier))
+        license_note = manifest.tier_license_notes.get(tier, "?")[:60]
+        click.echo(f"  {tier}: {n} entries  — {license_note}")
+
+
+@suite_group.command("materialize")
+@click.option(
+    "--manifest",
+    "manifest_path",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to suite_manifest.json",
+)
+@click.option(
+    "--bfcl-data-dir",
+    default=None,
+    type=click.Path(),
+    help="Local directory containing BFCL JSONL files",
+)
+@click.option(
+    "--output",
+    "output_path",
+    default=None,
+    type=click.Path(),
+    help="Write reconstructed instances as JSONL (omit to only verify)",
+)
+def suite_materialize_cmd(
+    manifest_path: str,
+    bfcl_data_dir: str | None,
+    output_path: str | None,
+) -> None:
+    """Reconstruct NormalizedInstances from a manifest and verify all SHA-256 hashes."""
+    import json as _json
+
+    from quantcall.suite.manifest import SuiteManifest
+    from quantcall.suite.materialize import materialize_suite
+
+    manifest = SuiteManifest.load(manifest_path)
+    instances = materialize_suite(manifest, bfcl_data_dir=bfcl_data_dir)
+
+    if output_path:
+        from quantcall.suite.hashes import _instance_to_dict
+
+        lines = [_json.dumps(_instance_to_dict(inst)) for inst in instances]
+        Path(output_path).write_text("\n".join(lines) + "\n")
+        click.echo(f"Written {len(instances)} instances to {output_path}")
+    else:
+        click.echo(f"Verified {len(instances)} instances — all hashes match.")
+
+
 @main.command("validate-config")
 @click.option("--config", "config_path", required=True, type=click.Path(exists=True))
 def validate_config_cmd(config_path: str) -> None:
