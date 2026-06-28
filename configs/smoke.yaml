@@ -1,0 +1,16 @@
+model: mock
+backend: mock
+quant: fp16
+decoding: free
+tiers:
+  - T0
+sample_size: 10
+seed: 42
+temperature: 0.0
+repeats: 1
+metrics:
+  fcr_weights:
+    svr: 0.25
+    tsa: 0.25
+    ac: 0.25
+    abst: 0.25
