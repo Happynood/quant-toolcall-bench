@@ -40,8 +40,7 @@ test:
 
 smoke:
 	uv run quantcall run --config configs/smoke.yaml --output /tmp/qc-smoke-result.json --manifest /tmp/qc-smoke-manifest.json
-	@python -c "import json, sys; d=json.load(open('/tmp/qc-smoke-result.json')); sys.exit(0 if 'svr' in d and 'manifest' in d for _ in [1] else 1)" 2>/dev/null || \
-	 python -c "import json; d=json.load(open('/tmp/qc-smoke-result.json')); assert 'svr' in d, 'result.json missing svr'; print('smoke OK: svr=' + str(d['svr']))"
+	@uv run python -c "import json; d=json.load(open('/tmp/qc-smoke-result.json')); assert 'svr' in d, 'result.json missing svr'; print('smoke OK: svr=' + str(d['svr']))"
 
 # ── Dev helpers ───────────────────────────────────────────────────────────────
 

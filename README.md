@@ -1,5 +1,9 @@
 # QuantCall — Does Quantization Break Tool Calling?
 
+[![CI](https://github.com/Happynood/quant-toolcall-bench/actions/workflows/ci.yml/badge.svg)](https://github.com/Happynood/quant-toolcall-bench/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 > *"You quantized your model to fit VRAM. Did you also quietly break its ability to call tools? Find out — on your own hardware, in one command."*
 
 A reproducible benchmark measuring the degradation of function-calling / structured-output in open-weight LLMs under quantization and across inference backends.
@@ -44,7 +48,7 @@ quantcall run --config configs/smoke.yaml --output results/smoke.json
 | **TSA** | Tool-Selection Accuracy — correct tool names selected? |
 | **AC** | Argument Correctness — correct argument values (AST-match)? |
 | **Abst** | Abstention Accuracy — does the model correctly *not* call when irrelevant? |
-| **FCR** | Function-Calling Reliability — weighted aggregate (0.25 × SVR + TSA + AC + Abst) |
+| **FCR** | Function-Calling Reliability — weighted aggregate 0.25 × (SVR + TSA + AC + Abst) |
 | **ΔFCR** | Absolute degradation vs fp16 baseline |
 | **CDR** | Constrained-Decoding Recovery — fraction of degradation recovered by GBNF/xgrammar |
 | **η** | Efficiency — FCR / peak VRAM (GB) |
@@ -60,7 +64,7 @@ quantcall run --config configs/smoke.yaml --output results/smoke.json
 | T2 | BFCL parallel | Manual JSONL download |
 | T6 | BFCL irrelevance | Manual JSONL download |
 | T3 | ToolACE (`Team-ACE/ToolACE`) | HF dataset |
-| T4 | xLAM ungated (`Salesforce/xlam-function-calling-60k`) | HF dataset |
+| T4 | xLAM ungated mirror (`minpeter/xlam-function-calling-60k-parsed`) | HF dataset; gated Salesforce source behind `use_gated_xlam: true` |
 | T5 | Hermes function-calling v1 | HF dataset |
 
 ---

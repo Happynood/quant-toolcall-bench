@@ -73,6 +73,7 @@ class QuantCallConfig(BaseModel):
     seed: int = 42
     temperature: float = Field(default=0.0, ge=0.0)
     repeats: int = Field(default=1, ge=1)
+    use_gated_xlam: bool = False
     metrics: MetricsConfig = Field(default_factory=MetricsConfig)
     reference: ReferenceConfig | None = None
     mock: MockBackendConfig = Field(default_factory=MockBackendConfig)
