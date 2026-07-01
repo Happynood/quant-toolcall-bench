@@ -14,6 +14,7 @@ from quantcall.report.published import (
 from quantcall.report.tables import render_delta_table
 
 SCHEMA_DOC = Path(__file__).parent.parent / "docs" / "RESULTS_SCHEMA.md"
+CARD_DOC = Path(__file__).parent.parent / "docs" / "hf" / "results_dataset_card.md"
 
 RESULT_A = {
     "svr": 0.9,
@@ -174,6 +175,23 @@ def test_no_schema_drift():
 
     documented_runs = _extract_markdown_table_columns(doc, "## `runs.csv`")
     documented_leaderboard = _extract_markdown_table_columns(doc, "## `leaderboard.csv`")
+
+    assert documented_runs == RUNS_COLS
+    assert documented_leaderboard == LEADERBOARD_COLS
+
+
+def test_hf_dataset_card_schema_matches_code():
+    """The published HF dataset card must document exactly the columns the code emits."""
+    card = CARD_DOC.read_text()
+
+    assert "currently empty" not in card.lower()
+    assert "happynood/quantcall-suite" in card
+    assert "happynood/quantcall-results" in card
+
+    documented_runs = _extract_markdown_table_columns(card, "## Schema: `data/runs.csv`")
+    documented_leaderboard = _extract_markdown_table_columns(
+        card, "## Schema: `data/leaderboard.csv`"
+    )
 
     assert documented_runs == RUNS_COLS
     assert documented_leaderboard == LEADERBOARD_COLS

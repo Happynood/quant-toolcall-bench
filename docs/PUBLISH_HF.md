@@ -67,10 +67,21 @@ hf upload happynood/quantcall-suite <schemas.json> data/schemas/tool_schemas.jso
 
 ## 3. Upload results dataset
 
+The published schema (`data/runs.csv` + `data/leaderboard.csv`) is documented in
+`docs/RESULTS_SCHEMA.md` and mirrored in `docs/hf/results_dataset_card.md` (the
+card uploaded as the dataset's `README.md`). A repo test
+(`test_hf_dataset_card_schema_matches_code`) fails the build if the card's
+schema tables drift from `src/quantcall/report/published.py`.
+
+Before publishing, scrub any local filesystem paths out of the `model` column
+(the `config.model` field defaults to the local GGUF path) and build both
+files with `quantcall leaderboard results/ --output-dir leaderboard/`.
+
 ```bash
 unset ALL_PROXY all_proxy
-hf upload happynood/quantcall-results README.md README.md --repo-type dataset
-hf upload happynood/quantcall-results data/results.csv data/results.csv --repo-type dataset
+hf upload happynood/quantcall-results docs/hf/results_dataset_card.md README.md --repo-type dataset
+hf upload happynood/quantcall-results leaderboard/runs.csv data/runs.csv --repo-type dataset
+hf upload happynood/quantcall-results leaderboard/leaderboard.csv data/leaderboard.csv --repo-type dataset
 ```
 
 ## 4. Upload / update the Gradio Space
