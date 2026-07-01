@@ -2,6 +2,9 @@ cff-version: 1.2.0
 message: "If you use QuantCall in your research, please cite it as below."
 type: software
 title: "QuantCall: Benchmarking Tool-Calling Reliability Under Quantization"
+authors:
+  - family-names: "Happynood"
+    given-names: "Alex"
 version: 0.1.0
 date-released: "2026-06-28"
 repository-code: "https://github.com/Happynood/quant-toolcall-bench"

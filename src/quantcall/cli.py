@@ -135,11 +135,12 @@ def leaderboard_cmd(
     results_dir: str,
     output_dir: str,
 ) -> None:
-    """Build leaderboard.{json,csv,md} from a directory of result files."""
+    """Build runs.csv + leaderboard.{json,csv,md} from a directory of result files."""
     from quantcall.report.leaderboard import build_leaderboard
 
     board = build_leaderboard(results_dir, output_dir=output_dir)
-    click.echo(f"Leaderboard built from {len(board['rows'])} result(s) in {results_dir!r}")
+    click.echo(f"Leaderboard built: {len(board['rows'])} aggregated row(s) from {results_dir!r}")
+    click.echo(f"  {output_dir}/runs.csv")
     click.echo(f"  {output_dir}/leaderboard.json")
     click.echo(f"  {output_dir}/leaderboard.csv")
     click.echo(f"  {output_dir}/leaderboard.md")

@@ -26,6 +26,7 @@ class RunResult:
     manifest: RunManifest
     total_latency_ms: float
     instance_results: list[InstanceResult] = field(default_factory=list)
+    peak_vram_mb: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -39,6 +40,7 @@ class RunResult:
             "over_call": self.metrics.over_call,
             "fcr": self.metrics.fcr,
             "total_latency_ms": self.total_latency_ms,
+            "vram_gb": (self.peak_vram_mb / 1024.0) if self.peak_vram_mb is not None else None,
             "config": self.config,
             "manifest": asdict(self.manifest),
         }
@@ -68,6 +70,7 @@ def run_eval(
     parser = _get_parser(cfg.backend)
     instance_results: list[InstanceResult] = []
     total_latency_ms = 0.0
+    peak_vram_mb: float | None = None
 
     for instance in instances:
         messages = _build_messages(instance)
@@ -76,6 +79,8 @@ def run_eval(
         try:
             result = backend.generate_toolcall(messages, tools)
             total_latency_ms += result.latency_ms
+            if result.peak_vram_mb is not None:
+                peak_vram_mb = max(peak_vram_mb or 0.0, result.peak_vram_mb)
             parsed_calls = parser.parse(result.raw_output)
             parse_succeeded = True
         except Exception:
@@ -106,6 +111,7 @@ def run_eval(
         manifest=manifest,
         total_latency_ms=total_latency_ms,
         instance_results=instance_results,
+        peak_vram_mb=peak_vram_mb,
     )
 
 

@@ -152,4 +152,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the PR-based submission flow.
 
 ## License
 
-MIT
+MIT, see [LICENSE](LICENSE).

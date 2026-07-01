@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-import csv
 import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from quantcall.report.tables import _COLS, _row_from_result, render_metrics_table
+from quantcall.report.published import (
+    LEADERBOARD_COLS,
+    RUNS_COLS,
+    aggregate_leaderboard,
+    run_row,
+    write_csv,
+)
+from quantcall.report.tables import _md_table
 
 
 def _load_results(results_dir: Path) -> list[dict[str, Any]]:
@@ -21,32 +27,50 @@ def _load_results(results_dir: Path) -> list[dict[str, Any]]:
     return results
 
 
+def _fmt(v: Any) -> str:
+    if v is None:
+        return "—"
+    if isinstance(v, float):
+        return f"{v:.3f}"
+    return str(v)
+
+
 def build_leaderboard(
     results_dir: Path | str,
     output_dir: Path | str | None = None,
 ) -> dict[str, Any]:
+    """Build the published leaderboard from a directory of result.json files.
+
+    Writes two files that make up the public schema (see docs/RESULTS_SCHEMA.md):
+    runs.csv (one row per real run) and leaderboard.csv (aggregated over seeds,
+    with bootstrap CIs and deltas vs the best-available baseline quant).
+    """
     results_dir = Path(results_dir)
     results = _load_results(results_dir)
 
-    rows = [_row_from_result(r) for r in results]
+    run_rows = [run_row(r) for r in results]
+    leaderboard_rows = aggregate_leaderboard(run_rows)
+
     leaderboard: dict[str, Any] = {
         "generated_at": datetime.now(UTC).isoformat(),
-        "columns": _COLS,
-        "rows": rows,
+        "columns": LEADERBOARD_COLS,
+        "rows": leaderboard_rows,
     }
 
     if output_dir is not None:
         out = Path(output_dir)
         out.mkdir(parents=True, exist_ok=True)
 
-        (out / "leaderboard.json").write_text(json.dumps(leaderboard, indent=2))
+        (out / "leaderboard.json").write_text(json.dumps(leaderboard, indent=2, default=str))
 
-        with open(out / "leaderboard.csv", "w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(_COLS)
-            writer.writerows(rows)
+        write_csv(out / "runs.csv", RUNS_COLS, run_rows)
+        write_csv(out / "leaderboard.csv", LEADERBOARD_COLS, leaderboard_rows)
 
-        md = render_metrics_table(results) if results else "No results yet."
+        if leaderboard_rows:
+            md_rows = [[_fmt(row.get(c)) for c in LEADERBOARD_COLS] for row in leaderboard_rows]
+            md = _md_table(LEADERBOARD_COLS, md_rows)
+        else:
+            md = "No results yet."
         (out / "leaderboard.md").write_text(f"# Leaderboard\n\n{md}\n")
 
     return leaderboard
