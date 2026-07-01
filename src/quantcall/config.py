@@ -68,6 +68,10 @@ class QuantCallConfig(BaseModel):
     backend: Literal["mock", "llama-cpp", "transformers", "vllm", "openai"] = "mock"
     quant: str = "fp16"
     decoding: Literal["free", "constrained"] = "free"
+    # "qwen3_nothink": append "/no_think" to the user turn to suppress Qwen3's
+    # <think>...</think> reasoning block, and parse tool calls with the
+    # Hermes-style <tool_call>{...}</tool_call> parser instead of raw_json.
+    chat_variant: Literal["default", "qwen3_nothink"] = "default"
     tiers: list[str] = Field(default_factory=lambda: ["T0"])
     sample_size: int = Field(default=50, ge=1)
     seed: int = 42

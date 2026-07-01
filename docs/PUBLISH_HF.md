@@ -73,9 +73,9 @@ card uploaded as the dataset's `README.md`). A repo test
 (`test_hf_dataset_card_schema_matches_code`) fails the build if the card's
 schema tables drift from `src/quantcall/report/published.py`.
 
-Before publishing, scrub any local filesystem paths out of the `model` column
-(the `config.model` field defaults to the local GGUF path) and build both
-files with `quantcall leaderboard results/ --output-dir leaderboard/`.
+Build both files with `quantcall leaderboard results/ --output-dir leaderboard/`
+— it sanitizes local GGUF paths in the `model` column automatically
+(`published.py::sanitize_model_name`), no manual scrubbing step needed.
 
 ```bash
 unset ALL_PROXY all_proxy

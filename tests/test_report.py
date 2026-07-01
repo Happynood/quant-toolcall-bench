@@ -10,6 +10,7 @@ from quantcall.report.published import (
     RUNS_COLS,
     aggregate_leaderboard,
     run_row,
+    sanitize_model_name,
 )
 from quantcall.report.tables import render_delta_table
 
@@ -64,6 +65,27 @@ RESULT_B = {
         "timestamp": "2026-07-01T00:01:00+00:00",
     },
 }
+
+
+def test_sanitize_model_name_strips_path_and_quant_suffix():
+    assert (
+        sanitize_model_name("/home/x/models/Qwen_Qwen3-0.6B-Q4_K_M.gguf", "Q4_K_M") == "Qwen3-0.6B"
+    )
+
+
+def test_sanitize_model_name_handles_fp16_filename_aliases():
+    # bartowski-style repos ship "fp16" as "-bf16.gguf" in the filename.
+    assert sanitize_model_name("/home/x/models/Qwen_Qwen3-0.6B-bf16.gguf", "fp16") == "Qwen3-0.6B"
+
+
+def test_sanitize_model_name_same_model_different_quants_collapse():
+    a = sanitize_model_name("/home/x/models/Qwen_Qwen3-1.7B-Q8_0.gguf", "Q8_0")
+    b = sanitize_model_name("/home/x/models/Qwen_Qwen3-1.7B-Q5_K_M.gguf", "Q5_K_M")
+    assert a == b == "Qwen3-1.7B"
+
+
+def test_sanitize_model_name_strips_org_prefix_from_hf_repo_id():
+    assert sanitize_model_name("Qwen/Qwen3-0.6B", "fp16") == "Qwen3-0.6B"
 
 
 def test_run_row_flattens_config_and_manifest():

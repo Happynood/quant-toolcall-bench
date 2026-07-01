@@ -75,12 +75,51 @@ def _tier_str(tiers: list[str]) -> str:
     return "+".join(tiers)
 
 
+_FP16_ALIASES = ("fp16", "bf16", "f16")
+
+
+def sanitize_model_name(raw_model: str, quant: str) -> str:
+    """Derive a canonical, path-free model name from a local GGUF path.
+
+    Local GGUF filenames encode both the model and the quant, e.g.
+    "/home/x/models/Qwen_Qwen3-0.6B-Q4_K_M.gguf" for quant="Q4_K_M". If the
+    raw path is published verbatim, every quant of the same model gets a
+    different "model" string, which breaks (model,backend,decoding,tier)
+    grouping in aggregate_leaderboard() -- every quant lands in its own
+    scope and delta/baseline computation degenerates to comparing a quant
+    against itself. This strips the directory, extension, and the trailing
+    quant suffix (including fp16/bf16/f16 filename aliases) so all quants of
+    one model share the same canonical name. Already-clean names (HF repo
+    IDs like "Qwen/Qwen3-0.6B", or a name with no matching suffix) pass
+    through unchanged.
+    """
+    name = raw_model.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+    if name.lower().endswith(".gguf"):
+        name = name[: -len(".gguf")]
+
+    suffixes = {quant} | (set(_FP16_ALIASES) if quant == "fp16" else set())
+    for suf in suffixes:
+        for candidate in (f"-{suf}", f"-{suf.upper()}", f"-{suf.lower()}"):
+            if name.endswith(candidate):
+                name = name[: -len(candidate)]
+                break
+
+    # bartowski-style GGUF repos duplicate the org in the filename, e.g.
+    # "Qwen_Qwen3-0.6B" for org "Qwen", model "Qwen3-0.6B".
+    if "_" in name:
+        org, _, rest = name.partition("_")
+        if rest.startswith(org):
+            name = rest
+
+    return name
+
+
 def run_row(r: dict[str, Any]) -> dict[str, Any]:
     """Flatten one result.json into a runs.csv row (one row per real run)."""
     cfg = r.get("config", {})
     manifest = r.get("manifest", {})
     return {
-        "model": cfg.get("model", ""),
+        "model": sanitize_model_name(cfg.get("model", ""), cfg.get("quant", "")),
         "quant": cfg.get("quant", ""),
         "backend": cfg.get("backend", ""),
         "decoding": cfg.get("decoding", ""),

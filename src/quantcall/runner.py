@@ -16,6 +16,7 @@ from quantcall.metrics.core import (
     compute_metrics,
     evaluate_instance,
 )
+from quantcall.parsing.hermes_xml import HermesXmlParser
 from quantcall.parsing.raw_json import RawJsonParser
 
 
@@ -47,12 +48,17 @@ class RunResult:
         return d
 
 
-def _get_parser(backend_name: str) -> Any:
+def _get_parser(chat_variant: str) -> Any:
+    if chat_variant == "qwen3_nothink":
+        return HermesXmlParser()
     return RawJsonParser()
 
 
-def _build_messages(instance: NormalizedInstance) -> list[dict[str, Any]]:
-    return [{"role": "user", "content": instance.query}]
+def _build_messages(instance: NormalizedInstance, chat_variant: str) -> list[dict[str, Any]]:
+    query = instance.query
+    if chat_variant == "qwen3_nothink":
+        query = f"{query} /no_think"
+    return [{"role": "user", "content": query}]
 
 
 def run_eval(
@@ -67,13 +73,13 @@ def run_eval(
         ac=cfg.metrics.fcr_weights.ac,
         abst=cfg.metrics.fcr_weights.abst,
     )
-    parser = _get_parser(cfg.backend)
+    parser = _get_parser(cfg.chat_variant)
     instance_results: list[InstanceResult] = []
     total_latency_ms = 0.0
     peak_vram_mb: float | None = None
 
     for instance in instances:
-        messages = _build_messages(instance)
+        messages = _build_messages(instance, cfg.chat_variant)
         tools = tools_to_openai_spec(instance.tools)
 
         try:
@@ -99,6 +105,7 @@ def run_eval(
         "backend": cfg.backend,
         "quant": cfg.quant,
         "decoding": cfg.decoding,
+        "chat_variant": cfg.chat_variant,
         "tiers": cfg.tiers,
         "sample_size": cfg.sample_size,
         "seed": cfg.seed,

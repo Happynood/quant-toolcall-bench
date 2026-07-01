@@ -37,18 +37,32 @@ before importing `llama_cpp` — no manual steps needed once the extras are inst
 
 ```bash
 pip install huggingface-hub
-huggingface-cli download \
-    bartowski/Llama-3.2-3B-Instruct-GGUF \
-    --include "Llama-3.2-3B-Instruct-Q4_K_M.gguf" \
-    --local-dir ~/models/
-huggingface-cli download \
-    bartowski/Llama-3.2-3B-Instruct-GGUF \
-    --include "Llama-3.2-3B-Instruct-Q8_0.gguf" \
-    --local-dir ~/models/
+for QUANT_FILE in Q4_K_M Q5_K_M Q8_0 f16; do
+    huggingface-cli download \
+        bartowski/Llama-3.2-3B-Instruct-GGUF \
+        --include "Llama-3.2-3B-Instruct-${QUANT_FILE}.gguf" \
+        --local-dir ~/models/
+done
 ```
 
-`fp16` GGUF (~6 GB) does not fit a 4 GB card — `Q8_0` (~3.2 GB) is the least-lossy
-precision that fits, and is used as the Δ reference in the current leaderboard.
+### fp16 does not fit a 4 GB card — verified, not assumed
+
+`fp16` (`Llama-3.2-3B-Instruct-f16.gguf`, ~6.4 GB) was actually loaded against
+the RTX 3050 Laptop GPU (4096 MiB total) with `n_gpu_layers: -1`, and fails
+with a real CUDA OOM during weight loading (not a guess based on file size):
+
+```
+ggml_backend_cuda_buffer_type_alloc_buffer: allocating 6128.17 MiB on device 0: cudaMalloc failed: out of memory
+alloc_tensor_range: failed to allocate CUDA0 buffer of size 6425850112
+llama_model_load: error loading model: unable to allocate CUDA0 buffer
+```
+
+Because fp16 cannot be run, **Q8_0 (~3.2 GB) is the Δ reference precision**
+in the leaderboard — the least-lossy precision that actually fits. This is
+labeled explicitly as `baseline_quant` in `leaderboard.csv`, never silently
+assumed to be fp16. On a GPU with more VRAM, add fp16 back to the sweep and
+it will automatically become the baseline (see the ranking in
+`src/quantcall/report/published.py::PRECISION_RANK`).
 
 ## Download BFCL v4 data (required for T1/T2/T6)
 
@@ -120,12 +134,15 @@ cat results/llama32-3b-q4_k_m.json | python -m json.tool | grep -E '"(svr|tsa|ac
 
 ## Run a quantization sweep with repeats
 
-Use multiple seeds to get more than one sample per quant level — a single
-run gives you a point estimate with no variance information.
+Use multiple seeds (0, 1, 2) to get more than one sample per quant level —
+a single run gives you a point estimate with no variance information. Sweep
+every quant that actually fits your VRAM (fp16 is included here for
+completeness; on a 4 GB card it will fail with the OOM shown above, so drop
+it from the loop and it will not appear in the results):
 
 ```bash
-for QUANT in Q8_0 Q4_K_M; do
-    for SEED in 42 43 44; do
+for QUANT in Q8_0 Q5_K_M Q4_K_M; do
+    for SEED in 0 1 2; do
         uv run quantcall run \
             --config configs/sweep-${QUANT}-s${SEED}.yaml \
             --output results/sweep/${QUANT}_s${SEED}.json \
@@ -134,18 +151,11 @@ for QUANT in Q8_0 Q4_K_M; do
 done
 ```
 
-Then compute bootstrap 95% CIs and the Δ vs a reference precision:
-
-```bash
-uv run python3 scripts/aggregate_sweep.py
-```
-
-This reads `results/sweep/*.json`, resamples the per-seed run means, and
-writes `results/leaderboard/quant_delta_report.json`. **With only 3 repeats
-per quant level the resulting CIs are wide** — treat them as indicative, not
-a precise estimate. Increase `SEEDS` and rerun for a tighter CI.
-
 ## Build the leaderboard from results
+
+`quantcall leaderboard` computes bootstrap 95% CIs and the Δ vs the
+best-available baseline quant itself (see `src/quantcall/report/published.py`)
+and writes both published files:
 
 ```bash
 uv run quantcall leaderboard results/sweep --output-dir results/leaderboard
@@ -153,15 +163,22 @@ cat results/leaderboard/leaderboard.md
 ```
 
 (`leaderboard` takes the results directory as a positional argument, not
-`--results-dir`.)
+`--results-dir`.) **With only 3 repeats per quant level the resulting CIs are
+wide** — treat them as indicative, not a precise estimate. Increase the
+number of seeds and rerun for a tighter CI.
 
 ## Publish results to the HF dataset
 
 Results are not committed to git — they're published to the
 `happynood/quantcall-results` HF dataset that the Space reads live. See
-`docs/PUBLISH_HF.md` §3 for the exact `hf upload` command. Before publishing,
-scrub any local filesystem paths out of the `Model` column (the `config.model`
-field defaults to the local GGUF path).
+`docs/PUBLISH_HF.md` §3 for the exact `hf upload` commands.
+
+`quantcall leaderboard` sanitizes `config.model` automatically
+(`src/quantcall/report/published.py::sanitize_model_name`) — local GGUF paths
+like `/home/x/models/Qwen_Qwen3-0.6B-Q4_K_M.gguf` are stripped to a canonical
+name (`Qwen3-0.6B`) so every quant of one model groups into the same
+`(model, backend, decoding, tier)` scope for baseline/delta computation. No
+manual pre-publish sanitization step is needed anymore.
 
 ## Run with constrained decoding (GBNF)
 
