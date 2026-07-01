@@ -143,7 +143,7 @@ def test_build_tool_call_grammar_is_valid_gbnf_via_llama_cpp():
         from quantcall.backends.llama_cpp import _preload_cuda_libs
 
         _preload_cuda_libs()
-        from llama_cpp import LlamaGrammar
+        from llama_cpp import LlamaGrammar  # type: ignore[import]
     except Exception:
         pytest.skip("llama-cpp extra / CUDA libs not available in this environment")
 
