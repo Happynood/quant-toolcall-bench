@@ -5,7 +5,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Leaderboard](https://img.shields.io/badge/🤗%20Space-Leaderboard-yellow)](https://huggingface.co/spaces/happynood/quantcall-leaderboard)
 
-> *"You quantized your model to fit VRAM. Did you also quietly break its ability to call tools? On Llama-3.2-3B, dropping from Q8_0 to Q4_K_M measurably hurt argument correctness (AC) — find out on your own hardware, in one command."*
+> *"Quantizing a 0.6B tool-calling model down to Q4_K_M produces a real,
+> statistically significant drop in argument correctness — but the same
+> quant on a 1.7B model from the same family shows no significant
+> degradation at all. Model size changes quantization sensitivity more
+> than the quant level itself does. Find out on your own hardware, in one
+> command."*
 
 A reproducible benchmark measuring the degradation of function-calling / structured-output in open-weight LLMs under quantization and across inference backends.
 
@@ -13,19 +18,52 @@ A reproducible benchmark measuring the degradation of function-calling / structu
 
 ## Leaderboard
 
-First real result, run on an RTX 3050 Laptop GPU (4GB VRAM) against BFCL v4
+Real results, run on an RTX 3050 Laptop GPU (4096 MiB VRAM) against BFCL v4
 (T1 simple/multiple + T6 irrelevance, n=200/seed, 3 seeds, greedy decoding).
-fp16 does not fit in 4GB, so **Q8_0 is the Δ reference precision** here —
-this is *not* a full-precision comparison. With only 3 repeats per quant
-level, the bootstrap 95% CIs below are wide; treat these as indicative,
-not final. Raw per-seed results: [🤗 quantcall-results dataset](https://huggingface.co/datasets/happynood/quantcall-results).
+**Qwen3-0.6B was picked specifically because its fp16 weights (~1.5 GB) fit
+a 4 GB card** — a genuine fp16 baseline, not a fallback. Qwen3-1.7B's fp16
+(bf16, ~4.07 GB) does *not* fit at a usable context length (real CUDA OOM at
+`n_ctx=4096` and `n_ctx=2048`; only loads at `n_ctx=512`, too small for
+BFCL's tool-schema prompts — see [docs/RUN_REAL.md](docs/RUN_REAL.md)), so
+**Q8_0 is its Δ reference precision**, labeled explicitly as `baseline_quant`
+in the published data. With only 3 repeats per quant level, CIs are wide;
+significance verdicts below come from bootstrapping the paired per-seed
+delta itself (`scripts/delta_significance.py`), not just eyeballing overlap.
+Raw per-seed results: [🤗 quantcall-results dataset](https://huggingface.co/datasets/happynood/quantcall-results).
 
-| Model | Quant | Backend | SVR | TSA | AC | Abst | FCR |
-|-------|-------|---------|-----|-----|----|------|-----|
-| Llama-3.2-3B-Instruct | Q8_0 (ref) | llama-cpp | 0.345 [0.330, 0.365] | 0.683 [0.655, 0.700] | 0.271 [0.252, 0.290] | 0.005 | 0.326 [0.325, 0.328] |
-| Llama-3.2-3B-Instruct | Q4_K_M | llama-cpp | 0.340 [0.320, 0.355] | 0.680 [0.655, 0.700] | 0.247 [0.244, 0.250] | 0.000 | 0.317 [0.311, 0.322] |
+| Model | Quant | SVR | TSA | AC | FCR (95% CI) | VRAM (GB) | ΔAC vs baseline |
+|-------|-------|-----|-----|----|--------------| ----------|------------------|
+| Qwen3-0.6B | fp16 (baseline) | 0.877 | 0.930 | 0.605 | 0.822 [0.797, 0.847] | 2.15 | — |
+| Qwen3-0.6B | Q8_0 | 0.878 | 0.932 | 0.610 | 0.826 [0.804, 0.850] | 1.45 | −0.7% (not significant) |
+| Qwen3-0.6B | Q5_K_M | 0.878 | 0.935 | 0.609 | 0.820 [0.797, 0.852] | 1.27 | −0.7% (not significant) |
+| Qwen3-0.6B | Q4_K_M | 0.873 | 0.930 | 0.575 | 0.798 [0.779, 0.827] | 1.23 | **+5.0% (SIGNIFICANT, 95% CI [+2.6%, +7.3%] relative, excludes 0)** |
+| Qwen3-1.7B | Q8_0 (baseline) | 0.880 | 0.933 | 0.681 | 0.842 [0.805, 0.873] | 2.57 | — |
+| Qwen3-1.7B | Q5_K_M | 0.880 | 0.930 | 0.690 | 0.843 [0.821, 0.874] | 2.03 | −1.2% (not significant) |
+| Qwen3-1.7B | Q4_K_M | 0.883 | 0.927 | 0.686 | 0.844 [0.814, 0.875] | 1.89 | −0.8% (not significant) |
 
-Δ (Q8_0 → Q4_K_M), mean of 3 seeds: AC **−8.7% relative** (0.271 → 0.247), FCR −2.9% relative. Live table: [🤗 Space](https://huggingface.co/spaces/happynood/quantcall-leaderboard).
+**The real finding: quantization sensitivity depends heavily on model
+size.** Qwen3-0.6B shows a statistically significant AC and FCR degradation
+at Q4_K_M (bootstrap 95% CI on the delta excludes zero — see
+`scripts/delta_significance.py` output in `docs/`). Qwen3-1.7B shows **no
+significant degradation on SVR, AC, or FCR at any quant down to Q4_K_M** —
+every CI on the delta crosses zero. This is reported as-is, without
+manufacturing a clean monotonic story: bigger model, more quantization
+headroom, at least across this quant range on this benchmark.
+
+We also ran a constrained-decoding (GBNF) pass — full analysis, including a
+real segfault we found and fixed in the process, in
+[docs/constrained_decoding_findings.md](docs/constrained_decoding_findings.md).
+Headline: it did **not** improve SVR/AC here, and abstention/FCR collapse
+under it because the grammar structurally cannot express "don't call a
+tool" — a genuine limitation of this GBNF implementation, disclosed rather
+than hidden.
+
+Live table + Pareto chart: [🤗 Space](https://huggingface.co/spaces/happynood/quantcall-leaderboard).
+
+<p align="center">
+  <img src="docs/screenshots/space-leaderboard.png" width="47%" alt="QuantCall Space leaderboard tab, populated with real Qwen3-0.6B/1.7B rows across free and constrained decoding">
+  <img src="docs/screenshots/space-pareto.png" width="47%" alt="QuantCall Space Pareto Front tab, plotting real FCR vs peak VRAM points">
+</p>
 
 ---
 
@@ -99,7 +137,8 @@ quant: Q4_K_M               # fp16 | Q8_0 | Q5_K_M | Q4_K_M | AWQ | GPTQ
 tiers: [T1, T6]             # dataset tiers to evaluate
 sample_size: 200            # instances per tier (null = all)
 seed: 42
-decoding: free              # free | gbnf | xgrammar | outlines
+decoding: free              # free | constrained (GBNF, see docs/constrained_decoding_findings.md)
+chat_variant: default       # default | qwen3_nothink (Hermes tool_call parser, suppresses <think>)
 ```
 
 ---

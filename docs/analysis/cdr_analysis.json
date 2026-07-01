@@ -1,0 +1,156 @@
+{
+  "models": {
+    "qwen3-0.6b": {
+      "baseline_quant": "fp16",
+      "quants": {
+        "fp16": {
+          "free": {
+            "svr": 0.8766666666666666,
+            "ac": 0.6054439520807472,
+            "abstention": 0.877687049164129,
+            "fcr": 0.8224494169778858
+          },
+          "constrained": {
+            "svr": 0.825,
+            "ac": 0.4852941176470588,
+            "abstention": 0.14285714285714285,
+            "fcr": 0.5332878151260504
+          },
+          "delta_svr_free_to_constrained": -0.05166666666666664,
+          "delta_ac_free_to_constrained": -0.12014983443368837,
+          "cdr_fcr": 0.0,
+          "free_instances_per_sec": 1.1609249196196187,
+          "constrained_instances_per_sec": 0.754596572939068,
+          "latency_cost_pct": 35.000398373194166
+        },
+        "Q8_0": {
+          "free": {
+            "svr": 0.8783333333333333,
+            "ac": 0.6096639947340843,
+            "abstention": 0.8835350023805032,
+            "fcr": 0.8257997492786467
+          },
+          "constrained": {
+            "svr": 0.825,
+            "ac": 0.5,
+            "abstention": 0.20634920634920634,
+            "fcr": 0.5578373015873016
+          },
+          "delta_svr_free_to_constrained": -0.053333333333333344,
+          "delta_ac_free_to_constrained": -0.10966399473408428,
+          "cdr_fcr": 1.0,
+          "free_instances_per_sec": 1.3802526182642785,
+          "constrained_instances_per_sec": 0.7357650601525126,
+          "latency_cost_pct": 46.69344941524067
+        },
+        "Q5_K_M": {
+          "free": {
+            "svr": 0.8783333333333333,
+            "ac": 0.6094708455185228,
+            "abstention": 0.8554091321493699,
+            "fcr": 0.8195533277503065
+          },
+          "constrained": {
+            "svr": 0.825,
+            "ac": 0.44274809160305345,
+            "abstention": 0.06349206349206349,
+            "fcr": 0.49656003877377924
+          },
+          "delta_svr_free_to_constrained": -0.053333333333333344,
+          "delta_ac_free_to_constrained": -0.16672275391546937,
+          "cdr_fcr": 0.0,
+          "free_instances_per_sec": 1.5246439460031254,
+          "constrained_instances_per_sec": 0.954815642028744,
+          "latency_cost_pct": 37.37451655307417
+        },
+        "Q4_K_M": {
+          "free": {
+            "svr": 0.8733333333333334,
+            "ac": 0.5750022182997706,
+            "abstention": 0.8121827867158936,
+            "fcr": 0.7976295845872494
+          },
+          "constrained": {
+            "svr": 0.825,
+            "ac": 0.40458015267175573,
+            "abstention": 0.06349206349206349,
+            "fcr": 0.48701805404095483
+          },
+          "delta_svr_free_to_constrained": -0.04833333333333345,
+          "delta_ac_free_to_constrained": -0.17042206562801487,
+          "cdr_fcr": 0.0,
+          "free_instances_per_sec": 1.5469975043608253,
+          "constrained_instances_per_sec": 0.9743201575382953,
+          "latency_cost_pct": 37.0186341741478
+        }
+      },
+      "baseline_free_fcr": 0.8224494169778858
+    },
+    "qwen3-1.7b": {
+      "baseline_quant": "Q8_0",
+      "quants": {
+        "Q8_0": {
+          "free": {
+            "svr": 0.88,
+            "ac": 0.6811231747509682,
+            "abstention": 0.8717537571527384,
+            "fcr": 0.84155256630926
+          },
+          "constrained": {
+            "svr": 0.85,
+            "ac": 0.5652173913043478,
+            "abstention": 0.23809523809523808,
+            "fcr": 0.5858281573498965
+          },
+          "delta_svr_free_to_constrained": -0.030000000000000027,
+          "delta_ac_free_to_constrained": -0.11590578344662039,
+          "cdr_fcr": 0.0,
+          "free_instances_per_sec": 0.4334428256520727,
+          "constrained_instances_per_sec": 0.5041346123803063,
+          "latency_cost_pct": -16.3093682821684
+        },
+        "Q5_K_M": {
+          "free": {
+            "svr": 0.88,
+            "ac": 0.6895217779767865,
+            "abstention": 0.8723960438731236,
+            "fcr": 0.8429794554624775
+          },
+          "constrained": {
+            "svr": 0.855,
+            "ac": 0.5735294117647058,
+            "abstention": 0.23809523809523808,
+            "fcr": 0.586656162464986
+          },
+          "delta_svr_free_to_constrained": -0.025000000000000022,
+          "delta_ac_free_to_constrained": -0.11599236621208064,
+          "cdr_fcr": 1.0,
+          "free_instances_per_sec": 0.5060462384338836,
+          "constrained_instances_per_sec": 0.4811029670794485,
+          "latency_cost_pct": 4.92904984960066
+        },
+        "Q4_K_M": {
+          "free": {
+            "svr": 0.8833333333333333,
+            "ac": 0.686348487706722,
+            "abstention": 0.877687049164129,
+            "fcr": 0.8435088842177128
+          },
+          "constrained": {
+            "svr": 0.84,
+            "ac": 0.5793103448275863,
+            "abstention": 0.31746031746031744,
+            "fcr": 0.6154426655719758
+          },
+          "delta_svr_free_to_constrained": -0.043333333333333335,
+          "delta_ac_free_to_constrained": -0.10703814287913571,
+          "cdr_fcr": 1.0,
+          "free_instances_per_sec": 0.4395819378310191,
+          "constrained_instances_per_sec": 0.4928104353047865,
+          "latency_cost_pct": -12.10889094679525
+        }
+      },
+      "baseline_free_fcr": 0.84155256630926
+    }
+  }
+}

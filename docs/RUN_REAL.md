@@ -2,7 +2,7 @@
 
 This guide covers running QuantCall against actual quantized models on a GPU. All
 commands below were run end-to-end on an RTX 3050 Laptop GPU (4 GB VRAM) to
-produce the first real leaderboard entries — they are exact, copy-paste ready.
+produce the real leaderboard entries — they are exact, copy-paste ready.
 
 ## Prerequisites
 
@@ -35,34 +35,50 @@ before importing `llama_cpp` — no manual steps needed once the extras are inst
 
 ## Download a GGUF model
 
+The primary model is Qwen3-0.6B, chosen specifically because its fp16 (bf16)
+weights (~1.5 GB) fit a 4 GB card with room to spare, so a genuine fp16
+baseline is possible (unlike a 3B-class model, where fp16 doesn't fit). The
+official `Qwen/Qwen3-0.6B-GGUF` repo only ships `Q8_0`; bartowski's repo has
+the full quant ladder including bf16 (used here as the `fp16` value in
+configs):
+
 ```bash
 pip install huggingface-hub
-for QUANT_FILE in Q4_K_M Q5_K_M Q8_0 f16; do
+for QUANT_FILE in Q4_K_M Q5_K_M Q8_0 bf16; do
     huggingface-cli download \
-        bartowski/Llama-3.2-3B-Instruct-GGUF \
-        --include "Llama-3.2-3B-Instruct-${QUANT_FILE}.gguf" \
+        bartowski/Qwen_Qwen3-0.6B-GGUF \
+        --include "Qwen_Qwen3-0.6B-${QUANT_FILE}.gguf" \
+        --local-dir ~/models/
+done
+# Secondary model, same quant ladder minus bf16 (see below):
+for QUANT_FILE in Q4_K_M Q5_K_M Q8_0; do
+    huggingface-cli download \
+        bartowski/Qwen_Qwen3-1.7B-GGUF \
+        --include "Qwen_Qwen3-1.7B-${QUANT_FILE}.gguf" \
         --local-dir ~/models/
 done
 ```
 
-### fp16 does not fit a 4 GB card — verified, not assumed
+### Qwen3-1.7B fp16 does not fit a 4 GB card — verified, not assumed
 
-`fp16` (`Llama-3.2-3B-Instruct-f16.gguf`, ~6.4 GB) was actually loaded against
-the RTX 3050 Laptop GPU (4096 MiB total) with `n_gpu_layers: -1`, and fails
-with a real CUDA OOM during weight loading (not a guess based on file size):
+`bf16` (`Qwen_Qwen3-1.7B-bf16.gguf`, ~4.07 GB) was actually loaded against
+the RTX 3050 Laptop GPU (4096 MiB total). It fails with a real CUDA OOM
+during KV-cache allocation at `n_ctx=4096` **and** at `n_ctx=2048`; it only
+succeeds at `n_ctx=512`, too small to be a fair/comparable eval context
+for BFCL's tool-schema-heavy prompts:
 
 ```
-ggml_backend_cuda_buffer_type_alloc_buffer: allocating 6128.17 MiB on device 0: cudaMalloc failed: out of memory
-alloc_tensor_range: failed to allocate CUDA0 buffer of size 6425850112
-llama_model_load: error loading model: unable to allocate CUDA0 buffer
+ggml_backend_cuda_buffer_type_alloc_buffer: allocating 448.00 MiB on device 0: cudaMalloc failed: out of memory
+alloc_tensor_range: failed to allocate CUDA0 buffer of size 469762048
+llama_init_from_model: failed to initialize the context: failed to allocate buffer for kv cache
 ```
 
-Because fp16 cannot be run, **Q8_0 (~3.2 GB) is the Δ reference precision**
-in the leaderboard — the least-lossy precision that actually fits. This is
-labeled explicitly as `baseline_quant` in `leaderboard.csv`, never silently
-assumed to be fp16. On a GPU with more VRAM, add fp16 back to the sweep and
-it will automatically become the baseline (see the ranking in
-`src/quantcall/report/published.py::PRECISION_RANK`).
+Because a usable-context fp16 run isn't possible for the 1.7B model,
+**Q8_0 is its Δ reference precision** — labeled explicitly as
+`baseline_quant` in `leaderboard.csv`, never silently assumed to be fp16.
+Qwen3-0.6B's fp16 *does* fit at `n_ctx=4096` and is used as its baseline.
+The baseline is picked automatically per model by the highest-ranked quant
+actually present (`src/quantcall/report/published.py::PRECISION_RANK`).
 
 ## Download BFCL v4 data (required for T1/T2/T6)
 
@@ -92,31 +108,37 @@ value as canonical, which is a conservative choice — AC may slightly
 undercount correct calls that use an alternative value, but the
 cross-quantization degradation *trend* remains valid.
 
-## Write a config
+## Qwen3-specific config: `chat_variant: qwen3_nothink`
+
+Qwen3 emits a `<think>...</think>` reasoning block by default. Set
+`chat_variant: qwen3_nothink` to append `/no_think` to the user turn
+(suppresses the reasoning content — verified empirically to produce an
+*empty* `<think></think>` block, not assumed from docs, see
+`docs/parser_audit.md`) and to parse tool calls with the Hermes-style
+`<tool_call>{...}</tool_call>` parser (`HermesXmlParser`) instead of the
+generic `raw_json` parser. The model's own GGUF-embedded chat template is
+used automatically (no `--jinja` flag needed — that's llama-cpp-python's
+default when `chat_format` is left unset).
 
 ```yaml
-# configs/llama32-3b-q4.yaml
+# configs/qwen3-sweep/qwen3-0.6b-Q4_K_M-s0.yaml
 backend: llama-cpp
-model: /home/you/models/Llama-3.2-3B-Instruct-Q4_K_M.gguf
+model: /home/you/models/Qwen_Qwen3-0.6B-Q4_K_M.gguf
 quant: Q4_K_M
 decoding: free
+chat_variant: qwen3_nothink
 tiers: [T1, T6]
 sample_size: 200
-seed: 42
+seed: 0
 temperature: 0.0
 bfcl_data_dir: data/bfcl
 
 llama_cpp:
-  n_ctx: 1024
+  n_ctx: 4096
   n_gpu_layers: -1
   max_tokens: 256
   verbose: false
 ```
-
-**VRAM note:** on a 4 GB card, `n_ctx: 2048` was enough to make `Q8_0` fail
-with a CUDA OOM during compute-buffer allocation (`ggml_gallocr_reserve_n_impl:
-failed to allocate CUDA0 buffer`). Dropping to `n_ctx: 1024` / `max_tokens: 256`
-fixed it for both `Q8_0` and `Q4_K_M`. If you have more VRAM, raise these.
 
 ## Run the evaluation
 
@@ -124,30 +146,28 @@ fixed it for both `Q8_0` and `Q4_K_M`. If you have more VRAM, raise these.
 mkdir -p results
 
 uv run quantcall run \
-    --config configs/llama32-3b-q4.yaml \
-    --output results/llama32-3b-q4_k_m.json \
-    --manifest results/llama32-3b-q4_k_m.manifest.json
+    --config configs/qwen3-sweep/qwen3-0.6b-Q4_K_M-s0.yaml \
+    --output results/qwen3-0.6b-Q4_K_M-s0.json \
+    --manifest results/qwen3-0.6b-Q4_K_M-s0.manifest.json
 
 # Check the summary
-cat results/llama32-3b-q4_k_m.json | python -m json.tool | grep -E '"(svr|tsa|ac|fcr)'
+cat results/qwen3-0.6b-Q4_K_M-s0.json | python -m json.tool | grep -E '"(svr|tsa|ac|fcr)'
 ```
 
 ## Run a quantization sweep with repeats
 
 Use multiple seeds (0, 1, 2) to get more than one sample per quant level —
-a single run gives you a point estimate with no variance information. Sweep
-every quant that actually fits your VRAM (fp16 is included here for
-completeness; on a 4 GB card it will fail with the OOM shown above, so drop
-it from the loop and it will not appear in the results):
+a single run gives you a point estimate with no variance information.
+`configs/qwen3-sweep/` has 21 ready-made configs (0.6B × [fp16, Q8_0,
+Q5_K_M, Q4_K_M] × 3 seeds; 1.7B × [Q8_0, Q5_K_M, Q4_K_M] × 3 seeds):
 
 ```bash
-for QUANT in Q8_0 Q5_K_M Q4_K_M; do
-    for SEED in 0 1 2; do
-        uv run quantcall run \
-            --config configs/sweep-${QUANT}-s${SEED}.yaml \
-            --output results/sweep/${QUANT}_s${SEED}.json \
-            --manifest results/sweep/${QUANT}_s${SEED}.manifest.json
-    done
+for CFG in configs/qwen3-sweep/*.yaml; do
+    NAME=$(basename "$CFG" .yaml)
+    uv run quantcall run \
+        --config "$CFG" \
+        --output "results/qwen3-sweep/${NAME}.json" \
+        --manifest "results/qwen3-sweep/${NAME}.manifest.json"
 done
 ```
 
@@ -158,7 +178,7 @@ best-available baseline quant itself (see `src/quantcall/report/published.py`)
 and writes both published files:
 
 ```bash
-uv run quantcall leaderboard results/sweep --output-dir results/leaderboard
+uv run quantcall leaderboard results/qwen3-sweep --output-dir results/leaderboard
 cat results/leaderboard/leaderboard.md
 ```
 
@@ -166,6 +186,14 @@ cat results/leaderboard/leaderboard.md
 `--results-dir`.) **With only 3 repeats per quant level the resulting CIs are
 wide** — treat them as indicative, not a precise estimate. Increase the
 number of seeds and rerun for a tighter CI.
+
+For per-metric (ΔSVR/ΔAC/ΔFCR) bootstrap CIs and significance verdicts
+(does the CI exclude zero?), rather than just the ΔFCR the leaderboard.csv
+carries:
+
+```bash
+uv run python3 scripts/delta_significance.py
+```
 
 ## Publish results to the HF dataset
 
@@ -178,7 +206,11 @@ Results are not committed to git — they're published to the
 like `/home/x/models/Qwen_Qwen3-0.6B-Q4_K_M.gguf` are stripped to a canonical
 name (`Qwen3-0.6B`) so every quant of one model groups into the same
 `(model, backend, decoding, tier)` scope for baseline/delta computation. No
-manual pre-publish sanitization step is needed anymore.
+manual pre-publish sanitization step is needed.
+
+**"Done" for any HF artifact requires re-fetching it from the hub after
+pushing and checking the real contents** — a local file being written is not
+proof anything actually reached the hub.
 
 ## Run with constrained decoding (GBNF)
 
@@ -187,8 +219,28 @@ manual pre-publish sanitization step is needed anymore.
 decoding: constrained
 ```
 
-Compare FCR between free and constrained runs to see how much constrained
-decoding recovers function-calling reliability under quantization.
+`configs/qwen3-constrained/` has 7 ready-made configs (1 seed each). This
+builds a GBNF grammar per instance (`src/quantcall/decoding/gbnf.py::
+build_tool_call_grammar`) that forces the model's output to match one of the
+available tools' exact JSON Schema. **Real finding, not the naive
+expectation:** this did not improve SVR or AC for Qwen3 in our testing, and
+Abstention/FCR crater under it because the grammar has no "abstain"
+alternative (it always forces a `<tool_call>`). See
+`docs/constrained_decoding_findings.md` for the full analysis, including a
+GBNF-parser segfault we found and fixed along the way
+(`src/quantcall/decoding/gbnf.py`'s rule-naming had to avoid mixing `_`
+and `-`, which crashes llama.cpp's grammar parser outright).
+
+```bash
+for CFG in configs/qwen3-constrained/*.yaml; do
+    NAME=$(basename "$CFG" .yaml)
+    uv run quantcall run \
+        --config "$CFG" \
+        --output "results/qwen3-constrained/${NAME}.json" \
+        --manifest "results/qwen3-constrained/${NAME}.manifest.json"
+done
+uv run python3 scripts/cdr_analysis.py
+```
 
 ## Troubleshooting
 
@@ -197,8 +249,13 @@ Expected on driver-only systems; see "GPU offload without the CUDA toolkit" abov
 Confirm the extra is installed: `uv sync --extra llama-cpp`.
 
 **`ValueError: Failed to create llama_context`**: Usually a CUDA OOM during
-compute-buffer allocation on small VRAM budgets. Lower `n_ctx` and/or
-`max_tokens` in the config until the model loads (see the VRAM note above).
+compute-buffer or KV-cache allocation on small VRAM budgets. Lower `n_ctx`
+and/or `max_tokens` in the config until the model loads.
+
+**Grammar parse crash (exit 139) under `decoding: constrained`**: Already
+fixed in this repo (see `docs/constrained_decoding_findings.md`), but if you
+hit a similar segfault with a custom grammar, suspect rule names that mix
+`_` and `-`.
 
 **Slow runs**: Set `sample_size: 50` for a quick smoke check before running
 the full sweep.

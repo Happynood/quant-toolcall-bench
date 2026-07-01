@@ -1,0 +1,226 @@
+{
+  "models": {
+    "qwen3-0.6b": {
+      "baseline_quant": "fp16",
+      "quants": {
+        "fp16": {
+          "svr": {
+            "baseline_mean": 0.8766666666666666,
+            "current_mean": 0.8766666666666666,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "ac": {
+            "baseline_mean": 0.6054439520807472,
+            "current_mean": 0.6054439520807472,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "fcr": {
+            "baseline_mean": 0.8224494169778858,
+            "current_mean": 0.8224494169778858,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          }
+        },
+        "Q8_0": {
+          "svr": {
+            "baseline_mean": 0.8766666666666666,
+            "current_mean": 0.8783333333333333,
+            "delta_abs_mean": -0.001666666666666668,
+            "delta_ci95": [
+              -0.0050000000000000044,
+              0.0
+            ],
+            "significant": false
+          },
+          "ac": {
+            "baseline_mean": 0.6054439520807472,
+            "current_mean": 0.6096639947340843,
+            "delta_abs_mean": -0.004220042653337012,
+            "delta_ci95": [
+              -0.010471204188481686,
+              0.003187420314492151
+            ],
+            "significant": false
+          },
+          "fcr": {
+            "baseline_mean": 0.8224494169778858,
+            "current_mean": 0.8257997492786467,
+            "delta_abs_mean": -0.003350332300761131,
+            "delta_ci95": [
+              -0.006089109833657624,
+              -0.0013440860215053752
+            ],
+            "significant": true
+          }
+        },
+        "Q5_K_M": {
+          "svr": {
+            "baseline_mean": 0.8766666666666666,
+            "current_mean": 0.8783333333333333,
+            "delta_abs_mean": -0.001666666666666668,
+            "delta_ci95": [
+              -0.0050000000000000044,
+              0.0050000000000000044
+            ],
+            "significant": false
+          },
+          "ac": {
+            "baseline_mean": 0.6054439520807472,
+            "current_mean": 0.6094708455185228,
+            "delta_abs_mean": -0.004026893437775662,
+            "delta_ci95": [
+              -0.024285107158035335,
+              0.027911233127430823
+            ],
+            "significant": false
+          },
+          "fcr": {
+            "baseline_mean": 0.8224494169778858,
+            "current_mean": 0.8195533277503065,
+            "delta_abs_mean": 0.002896089227579187,
+            "delta_ci95": [
+              -0.00517670157068062,
+              0.013664316218365613
+            ],
+            "significant": false
+          }
+        },
+        "Q4_K_M": {
+          "svr": {
+            "baseline_mean": 0.8766666666666666,
+            "current_mean": 0.8733333333333334,
+            "delta_abs_mean": 0.003333333333333336,
+            "delta_ci95": [
+              0.0,
+              0.0050000000000000044
+            ],
+            "significant": false
+          },
+          "ac": {
+            "baseline_mean": 0.6054439520807472,
+            "current_mean": 0.5750022182997706,
+            "delta_abs_mean": 0.030441733780976588,
+            "delta_ci95": [
+              0.015706806282722585,
+              0.04442094130089902
+            ],
+            "significant": true
+          },
+          "fcr": {
+            "baseline_mean": 0.8224494169778858,
+            "current_mean": 0.7976295845872494,
+            "delta_abs_mean": 0.024819832390636343,
+            "delta_ci95": [
+              0.01845725817666921,
+              0.03594650516649467
+            ],
+            "significant": true
+          }
+        }
+      }
+    },
+    "qwen3-1.7b": {
+      "baseline_quant": "Q8_0",
+      "quants": {
+        "Q8_0": {
+          "svr": {
+            "baseline_mean": 0.88,
+            "current_mean": 0.88,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "ac": {
+            "baseline_mean": 0.6811231747509682,
+            "current_mean": 0.6811231747509682,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "fcr": {
+            "baseline_mean": 0.84155256630926,
+            "current_mean": 0.84155256630926,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          }
+        },
+        "Q5_K_M": {
+          "svr": {
+            "baseline_mean": 0.88,
+            "current_mean": 0.88,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": [
+              -0.010000000000000009,
+              0.010000000000000009
+            ],
+            "significant": false
+          },
+          "ac": {
+            "baseline_mean": 0.6811231747509682,
+            "current_mean": 0.6895217779767865,
+            "delta_abs_mean": -0.008398603225818424,
+            "delta_ci95": [
+              -0.022469150960771067,
+              0.002905701754385981
+            ],
+            "significant": false
+          },
+          "fcr": {
+            "baseline_mean": 0.84155256630926,
+            "current_mean": 0.8429794554624775,
+            "delta_abs_mean": -0.0014268891532176475,
+            "delta_ci95": [
+              -0.01625325265247357,
+              0.012778417818740229
+            ],
+            "significant": false
+          }
+        },
+        "Q4_K_M": {
+          "svr": {
+            "baseline_mean": 0.88,
+            "current_mean": 0.8833333333333333,
+            "delta_abs_mean": -0.003333333333333336,
+            "delta_ci95": [
+              -0.0050000000000000044,
+              0.0
+            ],
+            "significant": false
+          },
+          "ac": {
+            "baseline_mean": 0.6811231747509682,
+            "current_mean": 0.686348487706722,
+            "delta_abs_mean": -0.005225312955753976,
+            "delta_ci95": [
+              -0.011008704557091686,
+              0.002905701754385981
+            ],
+            "significant": false
+          },
+          "fcr": {
+            "baseline_mean": 0.84155256630926,
+            "current_mean": 0.8435088842177128,
+            "delta_abs_mean": -0.001956317908452817,
+            "delta_ci95": [
+              -0.008779198928419829,
+              0.004966077828980953
+            ],
+            "significant": false
+          }
+        }
+      }
+    }
+  }
+}
