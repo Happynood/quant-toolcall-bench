@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from quantcall.backends.base import Backend, ToolCallResult, tools_to_openai_spec
+from quantcall.decoding.gbnf import build_tool_call_grammar
 
 
 def _preload_cuda_libs() -> None:
@@ -78,6 +79,7 @@ class LlamaCppBackend(Backend):
         temperature: float = 0.0,
         chat_format: str | None = None,
         verbose: bool = False,
+        decoding: str = "free",
     ) -> None:
         _preload_cuda_libs()
         from llama_cpp import Llama
@@ -85,6 +87,7 @@ class LlamaCppBackend(Backend):
         self._max_tokens = max_tokens
         self._temperature = temperature
         self._model_path = model_path
+        self._decoding = decoding
 
         self._llm = Llama(
             model_path=model_path,
@@ -108,6 +111,13 @@ class LlamaCppBackend(Backend):
 
         openai_tools = tools_to_openai_spec(tools) if tools else []
 
+        grammar = None
+        if self._decoding == "constrained" and openai_tools:
+            from llama_cpp import LlamaGrammar
+
+            gbnf_text = build_tool_call_grammar(openai_tools)
+            grammar = LlamaGrammar.from_string(gbnf_text, verbose=False)
+
         # Try native tool-call completion first; fall back to plain completion.
         try:
             response = self._llm.create_chat_completion(
@@ -116,12 +126,14 @@ class LlamaCppBackend(Backend):
                 tool_choice="auto" if openai_tools else None,
                 max_tokens=self._max_tokens,
                 temperature=self._temperature,
+                grammar=grammar,
             )
         except Exception:
             response = self._llm.create_chat_completion(
                 messages=messages,
                 max_tokens=self._max_tokens,
                 temperature=self._temperature,
+                grammar=grammar,
             )
 
         latency_ms = (time.perf_counter() - t_start) * 1000.0

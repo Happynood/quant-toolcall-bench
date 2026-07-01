@@ -283,6 +283,7 @@ def _build_backend(cfg: QuantCallConfig) -> Any:
             max_tokens=cfg.llama_cpp.max_tokens,
             temperature=cfg.temperature,
             chat_format=cfg.llama_cpp.chat_format,
+            decoding=cfg.decoding,
         )
     if cfg.backend == "transformers":
         from quantcall.backends.hf import HFBackend  # type: ignore[import]

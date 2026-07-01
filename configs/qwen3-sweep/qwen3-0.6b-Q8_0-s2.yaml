@@ -1,0 +1,16 @@
+backend: llama-cpp
+model: /home/alexander/models/Qwen_Qwen3-0.6B-Q8_0.gguf
+quant: Q8_0
+decoding: free
+chat_variant: qwen3_nothink
+tiers: [T1, T6]
+sample_size: 200
+seed: 2
+temperature: 0.0
+bfcl_data_dir: data/bfcl
+
+llama_cpp:
+  n_ctx: 4096
+  n_gpu_layers: -1
+  max_tokens: 256
+  verbose: false

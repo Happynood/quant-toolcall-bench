@@ -18,7 +18,19 @@ object-any ::= "{" ws (string ws ":" ws value (ws "," ws string ws ":" ws value)
 
 
 def _schema_rule_name(path: str) -> str:
-    return path.replace(".", "-").replace("[", "").replace("]", "").replace("/", "-") or "root"
+    """Turn a schema path into a GBNF rule name using a single separator char.
+
+    llama.cpp's GBNF parser segfaults on rule names that mix "_" and "-"
+    (e.g. "product_list-array" crashes; "product-list-array" does not --
+    reproduced directly against llama-cpp-python). Property names from JSON
+    Schema commonly contain underscores (e.g. "product_list"), and this
+    function's own path-joining used "-", so every nested/array property
+    name produced a mixed-separator rule name. Normalizing everything to
+    "-" avoids the crash.
+    """
+    name = path.replace(".", "-").replace("[", "").replace("]", "").replace("/", "-")
+    name = name.replace("_", "-")
+    return name or "root"
 
 
 def _compile_type(schema: dict[str, Any], path: str, rules: dict[str, str]) -> str:
@@ -89,6 +101,48 @@ def _compile_object(schema: dict[str, Any], path: str, rules: dict[str, str]) ->
 
     rules[rule_name] = '"{"' + f" ws {body} ws " + '"}"'
     return rule_name
+
+
+def build_tool_call_grammar(tools: list[Any]) -> str:
+    """Build a GBNF grammar constraining output to a single Hermes-style
+    ``<tool_call>{"name": ..., "arguments": ...}</tool_call>`` block whose
+    ``name`` is one of the given tools and whose ``arguments`` conform
+    exactly to that tool's JSON Schema (required/optional properties,
+    types, enums -- reusing the same schema compiler as gbnf_from_schema).
+
+    Each tool contributes one alternative to a top-level choice, so the
+    grammar allows the model to pick any of the available tools but forces
+    the arguments for whichever one it picks to match that tool's schema.
+    """
+    rules: dict[str, str] = {}
+    alternatives: list[str] = []
+    for i, tool in enumerate(tools):
+        fn = tool.get("function", tool) if isinstance(tool, dict) else tool
+        name = getattr(fn, "name", None)
+        if name is None and isinstance(fn, dict):
+            name = fn.get("name", f"tool{i}")
+        schema = getattr(fn, "json_schema", None)
+        if schema is None and isinstance(fn, dict):
+            schema = fn.get("json_schema") or fn.get("parameters") or {}
+        schema = schema or {}
+        args_rule = _compile_object(schema, f"tool{i}", rules)
+        name_key = '"\\"" "name" "\\""'
+        name_val = f'"\\"" "{name}" "\\""'
+        args_key = '"\\"" "arguments" "\\""'
+        alt = f'{name_key} ws ":" ws {name_val} ws "," ws {args_key} ws ":" ws {args_rule}'
+        alternatives.append(alt)
+
+    if not alternatives:
+        rules["tool-call-body"] = "value"
+    else:
+        rules["tool-call-body"] = " | ".join(f"({alt})" for alt in alternatives)
+
+    rules["root"] = '"<tool_call>" ws "{" ws tool-call-body ws "}" ws "</tool_call>"'
+
+    lines = [_PREAMBLE]
+    for rule_name, body in rules.items():
+        lines.append(f"{rule_name} ::= {body}")
+    return "\n".join(lines) + "\n"
 
 
 def gbnf_from_schema(schema: dict[str, Any]) -> str:
