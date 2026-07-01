@@ -4,7 +4,7 @@ quant: Q8_0
 decoding: free
 tiers: [T1, T6]
 sample_size: 200
-seed: 42
+seed: 2
 temperature: 0.0
 bfcl_data_dir: data/bfcl
 
