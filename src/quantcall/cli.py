@@ -130,13 +130,19 @@ def pareto_cmd(
 
 @main.command("leaderboard")
 @click.argument("results_dir", type=click.Path(exists=True))
-@click.option("--output-dir", default=None, type=click.Path())
+@click.option("--output-dir", default="leaderboard", show_default=True, type=click.Path())
 def leaderboard_cmd(
     results_dir: str,
-    output_dir: str | None,
+    output_dir: str,
 ) -> None:
     """Build leaderboard.{json,csv,md} from a directory of result files."""
-    click.echo("[leaderboard stub] Implementation in Phase 1.")
+    from quantcall.report.leaderboard import build_leaderboard
+
+    board = build_leaderboard(results_dir, output_dir=output_dir)
+    click.echo(f"Leaderboard built from {len(board['rows'])} result(s) in {results_dir!r}")
+    click.echo(f"  {output_dir}/leaderboard.json")
+    click.echo(f"  {output_dir}/leaderboard.csv")
+    click.echo(f"  {output_dir}/leaderboard.md")
 
 
 # ── Suite commands ────────────────────────────────────────────────────────────
