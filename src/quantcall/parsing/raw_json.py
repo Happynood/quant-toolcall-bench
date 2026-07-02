@@ -59,7 +59,7 @@ def _obj_to_parsed_call(obj: dict[str, Any]) -> ParsedCall | None:
             return ParsedCall(name=obj["name"], arguments=args)
 
     if "function" in obj and isinstance(obj["function"], str):
-        args = obj.get("arguments") or obj.get("args") or {}
+        args = obj.get("arguments") or obj.get("args") or obj.get("parameters") or {}
         return ParsedCall(name=obj["function"], arguments=args if isinstance(args, dict) else {})
 
     return None

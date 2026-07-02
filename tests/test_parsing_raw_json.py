@@ -61,3 +61,17 @@ def test_parsed_call_equality():
     c = ParsedCall(name="foo", arguments={"x": 2})
     assert a == b
     assert a != c
+
+
+def test_parse_function_string_with_parameters_key():
+    """Regression test: real Llama-3.2-1B output uses the envelope
+    {"type": "function", "function": "<name>", "parameters": {...}} --
+    the "function"-as-string branch previously only checked
+    "arguments"/"args", silently dropping "parameters" and losing all
+    call arguments. Confirmed against real model output on Llama-3.2-1B."""
+    p = _parser()
+    raw = '{"type": "function", "function": "math.hypot", "parameters": {"x": "4", "y": "5"}}'
+    calls = p.parse(raw)
+    assert len(calls) == 1
+    assert calls[0].name == "math.hypot"
+    assert calls[0].arguments == {"x": "4", "y": "5"}

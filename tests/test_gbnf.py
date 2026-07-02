@@ -211,3 +211,21 @@ def test_build_tool_call_grammar_array_property_has_no_mixed_separators():
         if m:
             name = m.group(1)
             assert not ("_" in name and "-" in name), f"mixed-separator rule name: {name}"
+
+
+def test_build_tool_call_grammar_default_allows_no_call():
+    from quantcall.decoding.gbnf import build_tool_call_grammar
+
+    tools = [{"type": "function", "function": {"name": "tool_a", "parameters": {}}}]
+    grammar = build_tool_call_grammar(tools)
+    assert "root ::= tool-call-path | no-call" in grammar
+    assert "no-call ::= plain-text" in grammar
+
+
+def test_build_tool_call_grammar_can_disable_no_call():
+    from quantcall.decoding.gbnf import build_tool_call_grammar
+
+    tools = [{"type": "function", "function": {"name": "tool_a", "parameters": {}}}]
+    grammar = build_tool_call_grammar(tools, allow_no_call=False)
+    assert "root ::= tool-call-path" in grammar
+    assert "no-call" not in grammar

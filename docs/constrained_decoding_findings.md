@@ -1,102 +1,120 @@
-# Constrained Decoding (GBNF) — Real Findings
+# Constrained Decoding (GBNF) — Real Findings (corrected)
 
-Real results from `configs/qwen3-constrained/` (1 seed each, T1+T6, n=200) vs
-the matching free-decoding rows (3 seeds) in `configs/qwen3-sweep/`. Computed
-by `scripts/cdr_analysis.py`, which reads only real `result.json` files.
+**This replaces an earlier version of this document.** The first pass used
+a call-only grammar (`root ::= "<tool_call>" ... "</tool_call>"`) that could
+not express "don't call a tool," which confounded Abstention and FCR on the
+T6 (irrelevance) tier. That was a real methodology bug, not just noise --
+see "What was wrong before" below. This version uses a corrected **union
+grammar** and reports the corrected result.
 
-## Headline: constrained decoding did NOT improve SVR or AC here
+Real results from `configs/qwen3-constrained/` (1 seed each, T1+T6, n=200)
+vs the matching free-decoding rows (3 seeds) in `configs/qwen3-sweep/`.
+Computed by `scripts/cdr_analysis.py`, which reads only real `result.json`
+files.
 
-| Model | Quant | SVR free → constrained | AC free → constrained |
-|-------|-------|------------------------|------------------------|
-| Qwen3-0.6B | fp16 | 0.877 → 0.825 (−0.052) | 0.605 → 0.485 (−0.120) |
-| Qwen3-0.6B | Q8_0 | 0.878 → 0.825 (−0.053) | 0.610 → 0.500 (−0.110) |
-| Qwen3-0.6B | Q5_K_M | 0.878 → 0.825 (−0.053) | 0.609 → 0.443 (−0.167) |
-| Qwen3-0.6B | Q4_K_M | 0.873 → 0.825 (−0.048) | 0.575 → 0.405 (−0.170) |
-| Qwen3-1.7B | Q8_0 | 0.880 → 0.850 (−0.030) | 0.681 → 0.565 (−0.116) |
-| Qwen3-1.7B | Q5_K_M | 0.880 → 0.855 (−0.025) | 0.690 → 0.574 (−0.116) |
-| Qwen3-1.7B | Q4_K_M | 0.883 → 0.840 (−0.043) | 0.686 → 0.579 (−0.107) |
+## The fix: `root ::= tool-call-path | no-call`
 
-This is the opposite of the naive expectation ("a grammar that forces valid
-JSON should raise SVR"). It did not, in either direction consistently
-improve things. Two real, identified causes — not fabricated explanations,
-each independently checked against the code:
+`build_tool_call_grammar()` (`src/quantcall/decoding/gbnf.py`) now compiles
+a union grammar: the model may emit a valid `<tool_call>{...}</tool_call>`
+**or** arbitrary free text (`no-call ::= .*`). Verified empirically on real
+T1 and T6 instances before trusting the full sweep:
 
-### 1. The grammar has no "abstain" alternative (confirmed root cause of the Abst/FCR crater)
+```
+=== T1 (call expected) ===
+T1-bfcl-simple_python_0 -> raw: '<think>\n\n</think>\n\n<tool_call>\n{"name": "calculate_triangle_area", "arguments": {"base": 10, "height": 5}}\n</tool_call>'
+  parsed: 1 call(s)
+=== T6 (abstain expected) ===
+T6-bfcl-irrelevance_0 -> raw: '<think>\n\n</think>\n\nThe area of a triangle is calculated using the formula: ...'
+  parsed: 0 call(s)
+```
 
-`build_tool_call_grammar()`'s `root` rule is `"<tool_call>" ws "{" ws
-tool-call-body ws "}" ws "</tool_call>"` — it always forces a tool call.
-BFCL v4's T6 (irrelevance) tier is specifically instances where the correct
-behavior is to call *nothing*. Under `decoding=constrained`, the model is
-structurally incapable of producing that correct behavior, so `abstention`
-collapses (e.g. Qwen3-0.6B fp16: 0.878 free → 0.143 constrained) and, since
-FCR is 25% Abstention, so does FCR. **This is a mechanical property of the
-grammar, not a claim that constrained decoding makes the model worse at
-tool-calling.** `CDR` values in `results/qwen3-leaderboard/cdr_analysis.json`
-are computed on this confounded FCR and should not be read as a clean
-recovery-fraction number without this caveat.
+T1 instances still correctly produce structured calls; T6 instances now
+correctly abstain with free text, instead of being forced into a spurious
+tool call. This is real, GPU-verified behavior, not a grammar-text
+inspection.
 
-### 2. Validator/grammar strictness mismatch on underspecified array schemas (confirmed by direct inspection of the code)
+## Headline: constrained decoding is now close to free decoding on quality, but meaningfully slower
 
-`evaluate_instance()` (`src/quantcall/metrics/core.py`) computes
-`schema_valid` via `validate_call(call, tool_schemas[call.name])` — a
-separate validator from the GBNF grammar the model was constrained to.
-Several real BFCL v4 tool schemas declare a property as `{"type": "array"}`
-with **no `items` sub-schema** (e.g. `walmart.purchase`'s `product_list` /
-`pack_size`, see `docs/parser_audit.md`'s repro). `build_tool_call_grammar()`
-compiles an unconstrained-item array for these (any JSON value per slot,
-via the grammar's generic `value` rule), which is a legitimate compilation
-choice for an underspecified schema -- but it does not guarantee the
-separate `validate_call()` validator agrees array contents are valid for
-every case. On T6 instances specifically, the model is also forced to pick
-from among tools that are *known to be irrelevant* to the query (by BFCL
-construction), so even a grammar-conformant call can be semantically wrong
-for that instance's actual expected schema. We did not fully bisect how much
-of the ~5-17pt SVR/AC gap comes from which of these two effects — flagging
-both as real, identified contributors rather than picking one to report.
+| Model | Quant | SVR free → constrained | AC free → constrained | Abst free → constrained | Throughput cost |
+|-------|-------|------------------------|------------------------|---------------------------|------------------|
+| Qwen3-0.6B | fp16 | 0.877 → 0.865 (−0.012) | 0.605 → 0.624 (+0.018) | 0.878 → 0.873 | +51.6% slower |
+| Qwen3-0.6B | Q8_0 | 0.878 → 0.865 (−0.013) | 0.610 → 0.618 (+0.009) | 0.884 → 0.873 | +78.8% slower |
+| Qwen3-0.6B | Q5_K_M | 0.878 → 0.865 (−0.013) | 0.609 → 0.608 (−0.001) | 0.855 → 0.857 | +88.7% slower |
+| Qwen3-0.6B | Q4_K_M | 0.873 → 0.860 (−0.013) | 0.575 → 0.579 (+0.004) | 0.812 → 0.794 | +69.3% slower |
+| Qwen3-1.7B | Q8_0 | 0.880 → 0.870 (−0.010) | 0.681 → 0.688 (+0.007) | 0.872 → 0.889 | +66.4% slower |
+| Qwen3-1.7B | Q5_K_M | 0.880 → 0.860 (−0.020) | 0.690 → 0.697 (+0.008) | 0.872 → 0.857 | +77.2% slower |
+| Qwen3-1.7B | Q4_K_M | 0.883 → 0.870 (−0.013) | 0.686 → 0.676 (−0.011) | 0.878 → 0.873 | +60.6% slower |
 
-## What IS a fair comparison here
+**Plain statement: the grammar does not meaningfully recover SVR or AC for
+Qwen3 here.** Every SVR/AC/Abst delta above is within ~1-2 percentage
+points either direction -- with only 1 seed for the constrained runs (no
+CI), this is consistent with noise, not a demonstrated improvement OR a
+demonstrated regression. Qwen3 already reliably emits well-formed
+`<tool_call>` JSON in free decoding (SVR ~0.86-0.88 across all quants
+tested), so there is little "brokenness" left for a grammar to recover.
 
-Given both confounds are concentrated in T6 (abstention) instances, the
-fairest read of "does grammar-constraining help" from this data is: **it
-does not show a clear benefit for Qwen3 in this implementation**, and it has
-a real latency cost (see below). We are not claiming constrained decoding is
-useless in general — only that this specific GBNF implementation, tested
-this way, did not demonstrate the expected SVR/AC improvement.
+**The clear, real cost: constrained decoding is 52-89% slower** (measured
+as instances/sec from `total_latency_ms`, not literal tok/s -- see
+`scripts/cdr_analysis.py::tok_per_sec` docstring). Grammar-constrained
+sampling has real per-token overhead, and the union grammar's free-text
+branch can run to the full `max_tokens` budget on abstention-expected
+instances (unlike the old call-only grammar, which terminated quickly at
+`</tool_call>`).
 
-## Latency cost (real, from `total_latency_ms`)
+**Honest conclusion for this model family and this benchmark:** given no
+measurable SVR/AC benefit and a substantial latency cost, constrained
+decoding is not obviously worth it for Qwen3 tool-calling under these
+conditions. This may differ for models that are less reliable at free-form
+JSON generation than Qwen3 turned out to be -- we are reporting what we
+measured for Qwen3, not a universal claim about GBNF constraining.
 
-Constrained decoding was consistently slower per instance (grammar-state
-tracking overhead in the sampler), most clearly on the smaller model:
+## What was wrong before (for the record)
 
-| Model | Quant | Cost |
-|-------|-------|------|
-| Qwen3-0.6B | fp16 | +35.0% slower |
-| Qwen3-0.6B | Q8_0 | +46.7% slower |
-| Qwen3-0.6B | Q5_K_M | +37.4% slower |
-| Qwen3-0.6B | Q4_K_M | +37.0% slower |
-| Qwen3-1.7B | Q8_0 | −16.3% ("faster" — noise/model-load-order artifact, single-seed) |
-| Qwen3-1.7B | Q5_K_M | +4.9% slower |
-| Qwen3-1.7B | Q4_K_M | −12.1% ("faster" — same caveat) |
+The previous grammar's `root` was `"<tool_call>" ws "{" ws tool-call-body ws
+"}" ws "</tool_call>"` -- no alternative. On T6, the model was structurally
+forced to emit a tool call it shouldn't, so Abstention collapsed (e.g.
+Qwen3-0.6B fp16: 0.878 free → **0.143** under the old grammar, vs **0.873**
+under the corrected union grammar) and, since FCR is 25% Abstention, so did
+FCR (0.822 → 0.533 old vs 0.822 → 0.823 corrected). SVR/AC under the old
+grammar were also slightly *lower* than free decoding, which had two
+identified contributors: the abstain-confound itself (forced calls on
+irrelevant tools are schema-valid-but-wrong), and a validator/grammar
+strictness mismatch on underspecified array schemas (some BFCL tool
+schemas declare `{"type": "array"}` with no `items` sub-schema; the old
+analysis is preserved in git history at commit `5a7a5b7` for anyone who
+wants the full old writeup).
 
-The 1.7B numbers include a negative ("faster") reading for two quants; with
-only 1 seed per constrained config (vs 3 for free), this is within plausible
-run-to-run noise (cold cache, thermal state, background load), not a
-reproduced result — flagged rather than smoothed over.
+## Known limitation: combined T1+T6 metrics, not pure T1
 
-## A real, separate bug found and fixed along the way
+Every number above is computed over the **combined T1+T6 instance set**
+within one run -- `result.json` does not persist per-instance or per-tier
+results (a project-wide limitation, not specific to this analysis), so a
+genuinely T1-only SVR/CDR number is not retroactively recoverable from
+these runs without a fresh T1-only sweep, which was not run this pass due
+to time budget. Because the union grammar removes the T6 abstention
+confound, the combined-tier numbers above are a much less biased estimate
+than the old call-only-grammar numbers were -- but they are still combined
+T1+T6, not pure T1. Flagged rather than silently presented as T1-only.
+
+## A real, separate bug found and fixed along the way (previous pass)
 
 Building these grammars against real BFCL v4 schemas crashed the whole
 `quantcall run` process (segfault, exit 139) the first time this sweep ran.
 Root-caused to llama.cpp's GBNF parser crashing on rule names that mix `_`
 and `-` (JSON Schema property names commonly contain `_`; the array-rule
 naming appended `-array`). Fixed in `src/quantcall/decoding/gbnf.py` by
-normalizing all generated rule names to a single separator. See the commit
-that introduced `build_tool_call_grammar` for the full repro and the
+normalizing all generated rule names to a single separator. See the
 regression tests in `tests/test_gbnf.py`.
 
 ## Reproduce
 
 ```bash
+for CFG in configs/qwen3-constrained/*.yaml; do
+    NAME=$(basename "$CFG" .yaml)
+    uv run quantcall run --config "$CFG" \
+        --output "results/qwen3-constrained/${NAME}.json" \
+        --manifest "results/qwen3-constrained/${NAME}.manifest.json"
+done
 uv run python3 scripts/cdr_analysis.py
 cat results/qwen3-leaderboard/cdr_analysis.json
 ```

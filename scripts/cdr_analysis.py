@@ -6,18 +6,29 @@ executions. Computes:
   - CDR = (constrained_fcr - free_fcr) / (baseline_fcr - free_fcr), per
     src/quantcall/metrics/cdr.py -- how much of the fp16-baseline gap the
     grammar recovers.
-  - SVR/AC deltas free vs constrained (the cleaner signal -- see caveat).
+  - SVR/AC deltas free vs constrained.
   - Latency cost: constrained tok/s implied by total_latency_ms vs free.
 
-CAVEAT (real finding, not a bug in the numbers): build_tool_call_grammar()
-forces the model to always emit <tool_call>...</tool_call> -- the grammar
-has no "abstain" alternative. On T6 (irrelevance) instances, where the
-correct behavior is to call nothing, constrained decoding cannot express
-that, so Abstention (and therefore composite FCR, which is 25% Abstention)
-craters under decoding=constrained for a structural/mechanical reason, not
-because constraining genuinely makes the model worse. SVR and AC are the
-fair metrics for judging whether grammar constraints help; FCR/CDR here
-should be read with that caveat spelled out, not as a clean win/loss number.
+CORRECTED METHODOLOGY (see docs/constrained_decoding_findings.md for the
+full before/after): build_tool_call_grammar() now compiles a UNION grammar,
+`root ::= tool-call-path | no-call`, so the model can correctly abstain on
+T6 (irrelevance) instances instead of being forced to always emit a tool
+call. This fixes the previous pass's confound, where Abstention (25% of
+FCR) collapsed under decoding=constrained for a purely mechanical reason.
+Verified empirically: Abst under constrained is now close to free-decoding
+levels (e.g. Qwen3-0.6B fp16: 0.878 free vs 0.873 constrained here, vs.
+0.143 constrained under the old call-only grammar).
+
+REMAINING LIMITATION (disclosed, not silently worked around): every metric
+here is computed over the COMBINED T1+T6 instance set within one run --
+result.json does not persist per-instance or per-tier results (a
+project-wide limitation, not specific to this script), so a genuinely
+T1-only SVR/CDR number is not retroactively recoverable from these runs
+without a fresh T1-only sweep, which was not run this pass due to time
+budget. Because the union grammar removes the T6 abstention confound, the
+combined-tier numbers below are a much less biased estimate than the old
+call-only-grammar numbers were, but they are still combined T1+T6, not
+pure T1.
 """
 
 from __future__ import annotations
@@ -128,10 +139,7 @@ def main() -> None:
                 f"    AC    free={f['ac']:.3f}  constrained={c['ac']:.3f}  "
                 f"Delta={qr['delta_ac_free_to_constrained']:+.3f}"
             )
-            print(
-                f"    Abst  free={f['abstention']:.3f}  constrained={c['abstention']:.3f}  "
-                "(grammar cannot abstain)"
-            )
+            print(f"    Abst  free={f['abstention']:.3f}  constrained={c['abstention']:.3f}")
             print(
                 f"    FCR   free={f['fcr']:.3f}  constrained={c['fcr']:.3f}  "
                 f"CDR={qr['cdr_fcr']:.3f}"

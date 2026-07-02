@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from quantcall.config import QuantCallConfig
 from quantcall.datasets.base import NormalizedInstance
-from quantcall.datasets.toolace import normalize_toolace_instance
+from quantcall.datasets.toolace import normalize_toolace_row
 from quantcall.datasets.xlam import (
     XLAM_GATED_REPO,
     XLAM_UNGATED_REPO,
@@ -10,27 +10,25 @@ from quantcall.datasets.xlam import (
     normalize_xlam_parsed_instance,
 )
 
+# Real Team-ACE/ToolACE schema, verified against the live HF dataset (not
+# assumed): a "system" string with the tool list embedded as JSON prose, and
+# "conversations" turns where assistant tool calls are a Python-call-list
+# string (function names may contain spaces, e.g. "Search Flights").
 TOOLACE_SAMPLE = {
-    "id": "ta_001",
-    "query": "Search for flights from NYC to London",
-    "answers": [
-        {
-            "name": "search_flights",
-            "arguments": {"origin": "NYC", "destination": "LDN"},
-        }
-    ],
-    "tools": [
-        {
-            "name": "search_flights",
-            "description": "Search available flights",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "origin": {"type": "string"},
-                    "destination": {"type": "string"},
-                },
-            },
-        }
+    "system": (
+        "You are an expert in composing functions. You are given a question and a "
+        "set of possible functions.\nHere is a list of functions in JSON format "
+        "that you can invoke:\n"
+        '[{"name": "search_flights", "description": "Search available flights", '
+        '"parameters": {"type": "dict", "properties": {"origin": {"type": "string"}, '
+        '"destination": {"type": "string"}}, "required": ["origin", "destination"]}, '
+        '"required": null}]'
+        ". \nShould you decide to return the function call(s), put it in the format "
+        "of [func1(params_name=params_value)]. NO other text MUST be included.\n"
+    ),
+    "conversations": [
+        {"from": "user", "value": "Search for flights from NYC to London"},
+        {"from": "assistant", "value": '[search_flights(origin="NYC", destination="LDN")]'},
     ],
 }
 
@@ -68,7 +66,7 @@ XLAM_PARSED_SAMPLE = {
 
 
 def test_normalize_toolace_basic():
-    inst = normalize_toolace_instance(TOOLACE_SAMPLE)
+    inst = normalize_toolace_row(TOOLACE_SAMPLE, 0)
     assert isinstance(inst, NormalizedInstance)
     assert inst.tier == "T3"
     assert inst.category == "toolace"
@@ -79,10 +77,31 @@ def test_normalize_toolace_basic():
 
 
 def test_normalize_toolace_tools():
-    inst = normalize_toolace_instance(TOOLACE_SAMPLE)
+    inst = normalize_toolace_row(TOOLACE_SAMPLE, 0)
+    assert inst is not None
     assert len(inst.tools) == 1
     assert inst.tools[0].name == "search_flights"
     assert "properties" in inst.tools[0].json_schema
+
+
+def test_normalize_toolace_nested_list_argument_not_truncated():
+    """Regression test: a naive comma-split kwarg parser truncates argument
+    values that are themselves list/dict literals at the first internal
+    comma. Confirmed against real ToolACE rows during development."""
+    sample = dict(TOOLACE_SAMPLE)
+    sample["conversations"] = [
+        {"from": "user", "value": "Search for flights from NYC to London"},
+        {
+            "from": "assistant",
+            "value": (
+                '[search_flights(origin="NYC", waypoints=[{"city": "Boston"}, {"city": "Dublin"}])]'
+            ),
+        },
+    ]
+    inst = normalize_toolace_row(sample, 0)
+    assert inst is not None
+    call = inst.ground_truth_calls[0]
+    assert call.arguments["waypoints"] == [{"city": "Boston"}, {"city": "Dublin"}]
 
 
 def test_normalize_xlam_basic():
@@ -155,11 +174,18 @@ def test_normalize_xlam_parsed_no_call():
     assert inst.ground_truth_calls == []
 
 
-def test_normalize_toolace_no_answers():
+def test_normalize_toolace_no_parseable_call_is_skipped():
+    """A row whose first assistant turn has no call-list syntax is skipped
+    entirely (returns None) rather than treated as an abstention example --
+    T3 is not BFCL's abstention tier, so we don't invent one from parse
+    failures (see module docstring in toolace.py)."""
     sample = dict(TOOLACE_SAMPLE)
-    sample["answers"] = []
-    inst = normalize_toolace_instance(sample)
-    assert inst.expects_call is False
+    sample["conversations"] = [
+        {"from": "user", "value": "Search for flights from NYC to London"},
+        {"from": "assistant", "value": "I'm sorry, I don't have enough information."},
+    ]
+    inst = normalize_toolace_row(sample, 0)
+    assert inst is None
 
 
 # --- Ungated-by-default policy ---

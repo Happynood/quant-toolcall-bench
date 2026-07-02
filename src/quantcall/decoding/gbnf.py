@@ -103,16 +103,19 @@ def _compile_object(schema: dict[str, Any], path: str, rules: dict[str, str]) ->
     return rule_name
 
 
-def build_tool_call_grammar(tools: list[Any]) -> str:
-    """Build a GBNF grammar constraining output to a single Hermes-style
+def build_tool_call_grammar(tools: list[Any], allow_no_call: bool = True) -> str:
+    """Build a GBNF grammar for Hermes-style tool-call output.
+
+    The grammar's root is a union: ``tool-call-path | no-call`` (when
+    ``allow_no_call`` is True, the default). ``tool-call-path`` is a single
     ``<tool_call>{"name": ..., "arguments": ...}</tool_call>`` block whose
     ``name`` is one of the given tools and whose ``arguments`` conform
     exactly to that tool's JSON Schema (required/optional properties,
     types, enums -- reusing the same schema compiler as gbnf_from_schema).
-
-    Each tool contributes one alternative to a top-level choice, so the
-    grammar allows the model to pick any of the available tools but forces
-    the arguments for whichever one it picks to match that tool's schema.
+    ``no-call`` matches arbitrary free text, so the model can correctly
+    abstain (BFCL T6 irrelevance) instead of being forced to always emit a
+    tool call. Pass ``allow_no_call=False`` to force a call unconditionally
+    (kept only for tests / callers that specifically want the old behavior).
     """
     rules: dict[str, str] = {}
     alternatives: list[str] = []
@@ -137,7 +140,14 @@ def build_tool_call_grammar(tools: list[Any]) -> str:
     else:
         rules["tool-call-body"] = " | ".join(f"({alt})" for alt in alternatives)
 
-    rules["root"] = '"<tool_call>" ws "{" ws tool-call-body ws "}" ws "</tool_call>"'
+    rules["tool-call-path"] = '"<tool_call>" ws "{" ws tool-call-body ws "}" ws "</tool_call>"'
+
+    if allow_no_call:
+        rules["no-call"] = "plain-text"
+        rules["plain-text"] = ".*"
+        rules["root"] = "tool-call-path | no-call"
+    else:
+        rules["root"] = "tool-call-path"
 
     lines = [_PREAMBLE]
     for rule_name, body in rules.items():
