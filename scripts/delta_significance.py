@@ -26,22 +26,41 @@ MODELS = {
         "dir": Path("results/qwen3-sweep"),
         "baseline": "fp16",
         "quants": ["fp16", "Q8_0", "Q5_K_M", "Q4_K_M"],
+        "suffix": "",
     },
     "qwen3-1.7b": {
         "dir": Path("results/qwen3-sweep"),
         "baseline": "Q8_0",  # fp16 (bf16) OOMs on 4GB even at n_ctx=512 usable ctx
         "quants": ["Q8_0", "Q5_K_M", "Q4_K_M"],
+        "suffix": "",
     },
     "llama-1b": {
         "dir": Path("results/llama1b-sweep"),
         "baseline": "fp16",
         "quants": ["fp16", "Q8_0", "Q5_K_M", "Q4_K_M"],
+        "suffix": "",
+    },
+    "qwen3-0.6b-t2t3": {
+        "dir": Path("results/broader-tiers"),
+        "prefix": "qwen3-0.6b",
+        "baseline": "fp16",
+        "quants": ["fp16", "Q4_K_M"],
+        "suffix": "-t2t3",
+    },
+    "llama-1b-t2t3": {
+        "dir": Path("results/broader-tiers"),
+        "prefix": "llama-1b",
+        "baseline": "fp16",
+        "quants": ["fp16", "Q4_K_M"],
+        "suffix": "-t2t3",
     },
 }
 
 
-def load(model_dir: Path, model_prefix: str, quant: str, seed: int) -> dict[str, float]:
-    path = model_dir / f"{model_prefix}-{quant}-s{seed}.json"
+def load(
+    model_dir: Path, model_prefix: str, quant: str, seed: int, suffix: str = ""
+) -> dict[str, float]:
+    path = model_dir / f"{model_prefix}-{quant}{suffix}-s{seed}.json"
     data = json.loads(path.read_text())
     return {m: float(data[m]) for m in METRICS}
 
@@ -49,18 +68,22 @@ def load(model_dir: Path, model_prefix: str, quant: str, seed: int) -> dict[str,
 def main() -> None:
     report: dict[str, object] = {"models": {}}
 
-    for model_prefix, spec in MODELS.items():
+    for model_key, spec in MODELS.items():
         model_dir = spec["dir"]
+        file_prefix = spec.get("prefix", model_key)
+        suffix = spec.get("suffix", "")
         baseline_quant = spec["baseline"]
         model_report: dict[str, object] = {"baseline_quant": baseline_quant, "quants": {}}
 
         baseline_seed_vals = {
-            m: [load(model_dir, model_prefix, baseline_quant, s)[m] for s in SEEDS] for m in METRICS
+            m: [load(model_dir, file_prefix, baseline_quant, s, suffix)[m] for s in SEEDS]
+            for m in METRICS
         }
 
         for quant in spec["quants"]:
             quant_seed_vals = {
-                m: [load(model_dir, model_prefix, quant, s)[m] for s in SEEDS] for m in METRICS
+                m: [load(model_dir, file_prefix, quant, s, suffix)[m] for s in SEEDS]
+                for m in METRICS
             }
             quant_report: dict[str, object] = {}
 
@@ -97,7 +120,7 @@ def main() -> None:
 
             model_report["quants"][quant] = quant_report  # type: ignore[index]
 
-        report["models"][model_prefix] = model_report  # type: ignore[index]
+        report["models"][model_key] = model_report  # type: ignore[index]
 
     out_path = Path("results/combined-leaderboard/delta_significance.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)

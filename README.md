@@ -8,9 +8,11 @@
 > *"A 1B Llama and a 0.6B Qwen3 look similar-sized on paper. Under
 > quantization they behave nothing alike: the Llama model shows a
 > statistically significant schema-validity drop at every quant level we
-> tested, down to Q8_0. The Qwen3 model only shows a significant drop at
-> Q4_K_M. Model family predicts quantization sensitivity more than model
-> size does. Find out on your own hardware, in one command."*
+> tested, down to Q8_0. On harder, parallel-calling tasks that drop grows to
+> **23 absolute percentage points at Q4_K_M** — a real, 95%-CI-verified
+> effect, not noise. The Qwen3 model barely moves. Model family predicts
+> quantization sensitivity more than model size does. Find out on your own
+> hardware, in one command."*
 
 A reproducible benchmark measuring the degradation of function-calling / structured-output in open-weight LLMs under quantization and across inference backends.
 
@@ -63,6 +65,28 @@ for tool-calling; if you're using this Llama-3.2 model, even Q8_0 already
 measurably hurts schema validity, so check your own numbers before
 assuming a "safe" quant level carries over between model families.**
 
+### Does this hold on harder tasks? Yes — and it gets worse
+
+T1+T6 are BFCL's simplest tiers (one call, or none). As a breadth check
+(not a full re-sweep — see caveat in the linked doc), we ran T2 (parallel
+tool calls) + T3 (ToolACE, real-world-style catalogs) at fp16 and Q4_K_M
+for both fp16-capable families:
+
+| Model | Quant | SVR | AC | Δ SVR (95% CI) | Δ AC (95% CI) |
+|-------|-------|-----|----|-----------------|----------------|
+| Llama-3.2-1B | fp16 (baseline) | 0.572 | 0.130 | — | — |
+| Llama-3.2-1B | Q4_K_M | 0.338 | 0.089 | **+0.233 abs, 95% CI [+0.205, +0.265] — ~5x the T1+T6 drop** | +0.041, CI [+0.033, +0.048] |
+| Qwen3-0.6B | fp16 (baseline) | 0.687 | 0.473 | — | — |
+| Qwen3-0.6B | Q4_K_M | 0.692 | 0.432 | not significant (matches T1+T6) | +0.042, CI [+0.026, +0.061] |
+
+**The finding gets stronger, not weaker, on harder tasks** — Llama-3.2-1B's
+schema-validity collapse at Q4_K_M is far larger on parallel/ToolACE-style
+instances (23 points) than on simple single-call ones (4.7 points). Full
+writeup, including a real methodology caveat (Abstention is trivially 1.0
+on these tiers, so don't compare FCR across tier combinations) and exactly
+what was and wasn't run, in
+[docs/broader_tiers_findings.md](docs/broader_tiers_findings.md).
+
 We also ran a constrained-decoding (GBNF) pass — full analysis, including a
 real segfault we found and fixed in the process, in
 [docs/constrained_decoding_findings.md](docs/constrained_decoding_findings.md).
@@ -75,8 +99,8 @@ benefit on this benchmark.
 Live table + Pareto chart: [🤗 Space](https://huggingface.co/spaces/happynood/quantcall-leaderboard).
 
 <p align="center">
-  <img src="docs/screenshots/space-leaderboard.png" width="47%" alt="QuantCall Space leaderboard tab, populated with real Qwen3-0.6B/1.7B and Llama-3.2-1B rows across free and constrained decoding">
-  <img src="docs/screenshots/space-pareto.png" width="47%" alt="QuantCall Space Pareto Front tab, plotting real FCR vs peak VRAM points -- showing the Llama-3.2-1B cluster clearly below the Qwen3 cluster">
+  <img src="docs/screenshots/space-leaderboard.png" width="47%" alt="QuantCall Space leaderboard tab, populated with 22 real rows across Qwen3-0.6B/1.7B and Llama-3.2-1B, T1+T6 and T2+T3, free and constrained decoding">
+  <img src="docs/screenshots/space-pareto.png" width="47%" alt="QuantCall Space Pareto Front tab, showing the Llama-3.2-1B Q4_K_M point on T2+T3 visibly dropped below its own fp16 point, corroborating the 23-point SVR collapse">
 </p>
 
 ---

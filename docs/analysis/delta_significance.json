@@ -348,6 +348,132 @@
           }
         }
       }
+    },
+    "qwen3-0.6b-t2t3": {
+      "baseline_quant": "fp16",
+      "quants": {
+        "fp16": {
+          "svr": {
+            "baseline_mean": 0.6866666666666666,
+            "current_mean": 0.6866666666666666,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "ac": {
+            "baseline_mean": 0.4734065934065934,
+            "current_mean": 0.4734065934065934,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "fcr": {
+            "baseline_mean": 0.7646016483516483,
+            "current_mean": 0.7646016483516483,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          }
+        },
+        "Q4_K_M": {
+          "svr": {
+            "baseline_mean": 0.6866666666666666,
+            "current_mean": 0.6916666666666668,
+            "delta_abs_mean": -0.0050000000000000044,
+            "delta_ci95": [
+              -0.010000000000000009,
+              0.0
+            ],
+            "significant": false
+          },
+          "ac": {
+            "baseline_mean": 0.4734065934065934,
+            "current_mean": 0.4316405222569412,
+            "delta_abs_mean": 0.04176607114965225,
+            "delta_ci95": [
+              0.025692184910062033,
+              0.06056373005525545
+            ],
+            "significant": true
+          },
+          "fcr": {
+            "baseline_mean": 0.7646016483516483,
+            "current_mean": 0.7537434638975687,
+            "delta_abs_mean": 0.010858184454079711,
+            "delta_ci95": [
+              0.0035105746209097566,
+              0.021390932513813854
+            ],
+            "significant": true
+          }
+        }
+      }
+    },
+    "llama-1b-t2t3": {
+      "baseline_quant": "fp16",
+      "quants": {
+        "fp16": {
+          "svr": {
+            "baseline_mean": 0.5716666666666667,
+            "current_mean": 0.5716666666666667,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "ac": {
+            "baseline_mean": 0.12969429324569512,
+            "current_mean": 0.12969429324569512,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "fcr": {
+            "baseline_mean": 0.5540902399780904,
+            "current_mean": 0.5540902399780904,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          }
+        },
+        "Q4_K_M": {
+          "svr": {
+            "baseline_mean": 0.5716666666666667,
+            "current_mean": 0.3383333333333334,
+            "delta_abs_mean": 0.2333333333333333,
+            "delta_ci95": [
+              0.20499999999999996,
+              0.26499999999999996
+            ],
+            "significant": true
+          },
+          "ac": {
+            "baseline_mean": 0.12969429324569512,
+            "current_mean": 0.08911146548007863,
+            "delta_abs_mean": 0.04058282776561649,
+            "delta_ci95": [
+              0.03336809176225233,
+              0.04781704781704782
+            ],
+            "significant": true
+          },
+          "fcr": {
+            "baseline_mean": 0.5540902399780904,
+            "current_mean": 0.5356111997033529,
+            "delta_abs_mean": 0.018479040274737457,
+            "delta_ci95": [
+              0.010842022940563023,
+              0.02320426195426195
+            ],
+            "significant": true
+          }
+        }
+      }
     }
   }
 }
