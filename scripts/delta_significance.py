@@ -1,13 +1,14 @@
 """Compute bootstrap 95% CIs for Delta-SVR, Delta-AC, Delta-FCR vs baseline, per model/quant.
 
-Reads results/qwen3-sweep/*.json (3 seeds per quant), pairs seeds by index with
-the baseline quant's same-seed run, bootstraps the per-seed absolute delta
-(baseline - quant), and reports whether each metric's degradation is
-statistically significant at the 3-seed sample size (CI excludes 0) or not
-(CI includes 0 -- cannot distinguish from noise at this n).
+Reads 3-seeds-per-quant free-decoding results across all three model sweeps
+run this pass, pairs seeds by index with the baseline quant's same-seed run,
+bootstraps the per-seed absolute delta (baseline - quant), and reports
+whether each metric's degradation is statistically significant at the
+3-seed sample size (CI excludes 0) or not (CI includes 0 -- cannot
+distinguish from noise at this n).
 
-All numbers come directly from results/qwen3-sweep/*.json, written by real
-`quantcall run` executions. Nothing here fabricates or estimates a value.
+All numbers come directly from real `quantcall run` output files. Nothing
+here fabricates or estimates a value.
 """
 
 from __future__ import annotations
@@ -17,24 +18,30 @@ from pathlib import Path
 
 from quantcall.metrics.bootstrap import bootstrap_ci
 
-RESULTS_DIR = Path("results/qwen3-sweep")
 METRICS = ["svr", "ac", "fcr"]
 SEEDS = [0, 1, 2]
 
 MODELS = {
     "qwen3-0.6b": {
+        "dir": Path("results/qwen3-sweep"),
         "baseline": "fp16",
         "quants": ["fp16", "Q8_0", "Q5_K_M", "Q4_K_M"],
     },
     "qwen3-1.7b": {
+        "dir": Path("results/qwen3-sweep"),
         "baseline": "Q8_0",  # fp16 (bf16) OOMs on 4GB even at n_ctx=512 usable ctx
         "quants": ["Q8_0", "Q5_K_M", "Q4_K_M"],
+    },
+    "llama-1b": {
+        "dir": Path("results/llama1b-sweep"),
+        "baseline": "fp16",
+        "quants": ["fp16", "Q8_0", "Q5_K_M", "Q4_K_M"],
     },
 }
 
 
-def load(model_prefix: str, quant: str, seed: int) -> dict[str, float]:
-    path = RESULTS_DIR / f"{model_prefix}-{quant}-s{seed}.json"
+def load(model_dir: Path, model_prefix: str, quant: str, seed: int) -> dict[str, float]:
+    path = model_dir / f"{model_prefix}-{quant}-s{seed}.json"
     data = json.loads(path.read_text())
     return {m: float(data[m]) for m in METRICS}
 
@@ -43,15 +50,18 @@ def main() -> None:
     report: dict[str, object] = {"models": {}}
 
     for model_prefix, spec in MODELS.items():
+        model_dir = spec["dir"]
         baseline_quant = spec["baseline"]
         model_report: dict[str, object] = {"baseline_quant": baseline_quant, "quants": {}}
 
         baseline_seed_vals = {
-            m: [load(model_prefix, baseline_quant, s)[m] for s in SEEDS] for m in METRICS
+            m: [load(model_dir, model_prefix, baseline_quant, s)[m] for s in SEEDS] for m in METRICS
         }
 
         for quant in spec["quants"]:
-            quant_seed_vals = {m: [load(model_prefix, quant, s)[m] for s in SEEDS] for m in METRICS}
+            quant_seed_vals = {
+                m: [load(model_dir, model_prefix, quant, s)[m] for s in SEEDS] for m in METRICS
+            }
             quant_report: dict[str, object] = {}
 
             for m in METRICS:
@@ -89,7 +99,7 @@ def main() -> None:
 
         report["models"][model_prefix] = model_report  # type: ignore[index]
 
-    out_path = Path("results/qwen3-leaderboard/delta_significance.json")
+    out_path = Path("results/combined-leaderboard/delta_significance.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(report, indent=2))
     print(f"Written: {out_path}\n")

@@ -35,15 +35,28 @@ inspection.
 
 ## Headline: constrained decoding is now close to free decoding on quality, but meaningfully slower
 
+These are the final numbers, re-run once more after fixing an unrelated
+environment regression (`llama-cpp-python` silently lost its CUDA build
+mid-session; see `docs/hf/GPU_ENV_NOTE.md`) that made an earlier version of
+this table's throughput-cost column artificially inflated and inconsistent
+between the two model sizes. Every run below was confirmed on GPU via
+`nvidia-smi` before being trusted.
+
 | Model | Quant | SVR free → constrained | AC free → constrained | Abst free → constrained | Throughput cost |
 |-------|-------|------------------------|------------------------|---------------------------|------------------|
-| Qwen3-0.6B | fp16 | 0.877 → 0.865 (−0.012) | 0.605 → 0.624 (+0.018) | 0.878 → 0.873 | +51.6% slower |
-| Qwen3-0.6B | Q8_0 | 0.878 → 0.865 (−0.013) | 0.610 → 0.618 (+0.009) | 0.884 → 0.873 | +78.8% slower |
-| Qwen3-0.6B | Q5_K_M | 0.878 → 0.865 (−0.013) | 0.609 → 0.608 (−0.001) | 0.855 → 0.857 | +88.7% slower |
-| Qwen3-0.6B | Q4_K_M | 0.873 → 0.860 (−0.013) | 0.575 → 0.579 (+0.004) | 0.812 → 0.794 | +69.3% slower |
-| Qwen3-1.7B | Q8_0 | 0.880 → 0.870 (−0.010) | 0.681 → 0.688 (+0.007) | 0.872 → 0.889 | +66.4% slower |
-| Qwen3-1.7B | Q5_K_M | 0.880 → 0.860 (−0.020) | 0.690 → 0.697 (+0.008) | 0.872 → 0.857 | +77.2% slower |
-| Qwen3-1.7B | Q4_K_M | 0.883 → 0.870 (−0.013) | 0.686 → 0.676 (−0.011) | 0.878 → 0.873 | +60.6% slower |
+| Qwen3-0.6B | fp16 | 0.877 → 0.865 (−0.012) | 0.605 → 0.624 (+0.018) | 0.878 → 0.873 | +79.9% slower |
+| Qwen3-0.6B | Q8_0 | 0.878 → 0.865 (−0.013) | 0.610 → 0.629 (+0.019) | 0.884 → 0.873 | +55.2% slower |
+| Qwen3-0.6B | Q5_K_M | 0.878 → 0.860 (−0.018) | 0.609 → 0.596 (−0.014) | 0.855 → 0.841 | +70.6% slower |
+| Qwen3-0.6B | Q4_K_M | 0.873 → 0.860 (−0.013) | 0.575 → 0.579 (+0.004) | 0.812 → 0.794 | +85.6% slower |
+| Qwen3-1.7B | Q8_0 | 0.880 → 0.870 (−0.010) | 0.681 → 0.683 (+0.001) | 0.872 → 0.889 | +7.5% slower |
+| Qwen3-1.7B | Q5_K_M | 0.880 → 0.860 (−0.020) | 0.690 → 0.688 (−0.001) | 0.872 → 0.857 | +17.9% slower |
+| Qwen3-1.7B | Q4_K_M | 0.883 → 0.870 (−0.013) | 0.686 → 0.694 (+0.007) | 0.878 → 0.873 | +5.9% slower |
+
+The throughput cost is clearly higher for the smaller model (55-86% for
+0.6B vs 6-18% for 1.7B). This is plausible rather than surprising: the
+1.7B model's free-decoding baseline is already slower per instance, so a
+roughly constant per-token grammar-tracking overhead becomes a smaller
+*relative* cost against that larger baseline.
 
 **Plain statement: the grammar does not meaningfully recover SVR or AC for
 Qwen3 here.** Every SVR/AC/Abst delta above is within ~1-2 percentage

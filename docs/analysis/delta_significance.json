@@ -221,6 +221,133 @@
           }
         }
       }
+    },
+    "llama-1b": {
+      "baseline_quant": "fp16",
+      "quants": {
+        "fp16": {
+          "svr": {
+            "baseline_mean": 0.32666666666666666,
+            "current_mean": 0.32666666666666666,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "ac": {
+            "baseline_mean": 0.18785335790148325,
+            "current_mean": 0.18785335790148325,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          },
+          "fcr": {
+            "baseline_mean": 0.3008985808045001,
+            "current_mean": 0.3008985808045001,
+            "delta_abs_mean": 0.0,
+            "delta_ci95": null,
+            "significant": false,
+            "note": "this is the baseline row"
+          }
+        },
+        "Q8_0": {
+          "svr": {
+            "baseline_mean": 0.32666666666666666,
+            "current_mean": 0.305,
+            "delta_abs_mean": 0.021666666666666667,
+            "delta_ci95": [
+              0.019999999999999962,
+              0.025000000000000022
+            ],
+            "significant": true
+          },
+          "ac": {
+            "baseline_mean": 0.18785335790148325,
+            "current_mean": 0.1762228952150212,
+            "delta_abs_mean": 0.01163046268646204,
+            "delta_ci95": [
+              0.006336122047244097,
+              0.01996850393700786
+            ],
+            "significant": true
+          },
+          "fcr": {
+            "baseline_mean": 0.3008985808045001,
+            "current_mean": 0.2836012161187722,
+            "delta_abs_mean": 0.017297364685727862,
+            "delta_ci95": [
+              0.010282655431064214,
+              0.024588900177800355
+            ],
+            "significant": true
+          }
+        },
+        "Q5_K_M": {
+          "svr": {
+            "baseline_mean": 0.32666666666666666,
+            "current_mean": 0.3133333333333333,
+            "delta_abs_mean": 0.013333333333333345,
+            "delta_ci95": [
+              0.010000000000000009,
+              0.015000000000000013
+            ],
+            "significant": true
+          },
+          "ac": {
+            "baseline_mean": 0.18785335790148325,
+            "current_mean": 0.1887153909017468,
+            "delta_abs_mean": -0.0008620330002635559,
+            "delta_ci95": [
+              -0.007751937984496124,
+              0.005229855371900821
+            ],
+            "significant": false
+          },
+          "fcr": {
+            "baseline_mean": 0.3008985808045001,
+            "current_mean": 0.2906698220249848,
+            "delta_abs_mean": 0.010228758779515254,
+            "delta_ci95": [
+              -0.0025739494084047188,
+              0.021743971779483173
+            ],
+            "significant": false
+          }
+        },
+        "Q4_K_M": {
+          "svr": {
+            "baseline_mean": 0.32666666666666666,
+            "current_mean": 0.28,
+            "delta_abs_mean": 0.046666666666666655,
+            "delta_ci95": [
+              0.03999999999999998,
+              0.05499999999999999
+            ],
+            "significant": true
+          },
+          "ac": {
+            "baseline_mean": 0.18785335790148325,
+            "current_mean": 0.17352092352092352,
+            "delta_abs_mean": 0.014332434380559722,
+            "delta_ci95": [
+              0.00349711488022382,
+              0.02238016917293234
+            ],
+            "significant": true
+          },
+          "fcr": {
+            "baseline_mean": 0.3008985808045001,
+            "current_mean": 0.28320315288057224,
+            "delta_abs_mean": 0.017695427923927847,
+            "delta_ci95": [
+              0.013313296261487084,
+              0.021376778965679133
+            ],
+            "significant": true
+          }
+        }
+      }
     }
   }
 }
