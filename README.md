@@ -103,6 +103,34 @@ Live table + Pareto chart: [🤗 Space](https://huggingface.co/spaces/happynood/
   <img src="docs/screenshots/space-pareto.png" width="47%" alt="QuantCall Space Pareto Front tab, showing the Llama-3.2-1B Q4_K_M point on T2+T3 visibly dropped below its own fp16 point, corroborating the 23-point SVR collapse">
 </p>
 
+### Does the backend itself matter, holding precision constant? Not here
+
+The quant-driven findings above all use the `llama-cpp` backend (GGUF). To
+check whether the *serving engine* adds its own effect independent of
+quantization (a real, testable question — precision and backend are two
+different axes), we ran the same Qwen3-0.6B model through the `transformers`
+backend (PyTorch eager, bf16, no GGUF) at matching precision, and separately
+ran a different model+backend combination end-to-end through the `openai`
+backend (Gemma via a local LM Studio server):
+
+| Model | Backend | Quant | SVR | AC | FCR |
+|-------|---------|-------|-----|----|----|
+| Qwen3-0.6B | llama-cpp | fp16 | 0.877 | 0.605 | 0.822 |
+| Qwen3-0.6B | transformers | bf16 | 0.877 | 0.604 | 0.823 |
+| gemma-4-e4b | openai (LM Studio) | Q4_0 | 0.878 | 0.639 | 0.838 |
+
+Qwen3-0.6B's SVR/AC/FCR are statistically indistinguishable between
+`llama-cpp` and `transformers` at matching precision (3 seeds each, T1+T6,
+n=200/seed) — on this model, the serving engine itself doesn't move the
+metric; the degradation documented above is a quantization effect, not a
+backend-implementation artifact. The `openai` row is a second real
+data point (different model family, different backend, real HTTP
+round-trip through a local server) rather than a controlled comparison —
+both new backends were exercised for real to confirm they're not just
+wired up but produce plausible, correctly-parsed results (see
+[docs/hf/BACKEND_VERIFICATION.md](docs/hf/BACKEND_VERIFICATION.md) for the
+sanity-checks and two real bugs found and fixed while verifying them).
+
 ---
 
 ## Quickstart
@@ -156,13 +184,13 @@ quantcall run --config configs/smoke.yaml --output results/smoke.json
 
 ## Supported Backends
 
-| Backend key | Quant formats | Install |
-|-------------|--------------|---------|
-| `mock` | — | built-in |
-| `llama-cpp` | GGUF Q4/Q5/Q8 | `uv sync --extra llama-cpp` |
-| `transformers` | fp16, 8-bit, 4-bit (bitsandbytes) | `uv sync --extra transformers` |
-| `vllm` | AWQ, GPTQ | `uv sync --extra vllm` |
-| `openai` | any (remote endpoint) | `uv sync --extra openai` |
+| Backend key | Quant formats | Install | Real example result |
+|-------------|--------------|---------|----------------------|
+| `mock` | — | built-in (no extra) | used by `make verify`'s smoke test |
+| `llama-cpp` | GGUF Q4/Q5/Q8/fp16 | `uv sync --extra llama-cpp` | Qwen3-0.6B fp16, SVR 0.877 (leaderboard) |
+| `transformers` | fp16/bf16, 8-bit/4-bit (bitsandbytes) | `uv sync --extra transformers` | Qwen3-0.6B bf16, SVR 0.877 (leaderboard) |
+| `openai` | any (OpenAI-wire-protocol endpoint — llama.cpp server, LM Studio, Ollama, etc.) | built-in (stdlib only, no extra) | gemma-4-e4b via a local LM Studio server, SVR 0.878 (leaderboard) |
+| `vllm` | AWQ, GPTQ, any HF model vLLM supports | `uv sync --extra vllm` | implemented against the real `LLM.chat()` API but not run on this project's 4GB GPU — see [docs/hf/VLLM_SCOPE_NOTE.md](docs/hf/VLLM_SCOPE_NOTE.md) |
 
 ---
 

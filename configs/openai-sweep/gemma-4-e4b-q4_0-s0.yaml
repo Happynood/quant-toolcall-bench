@@ -1,0 +1,15 @@
+backend: openai
+model: gemma-4-e4b
+quant: Q4_0
+decoding: free
+chat_variant: default
+tiers: [T1, T6]
+sample_size: 200
+seed: 0
+temperature: 0.0
+bfcl_data_dir: data/bfcl
+
+openai:
+  base_url: http://127.0.0.1:1234/v1
+  max_tokens: 256
+  timeout_s: 120
