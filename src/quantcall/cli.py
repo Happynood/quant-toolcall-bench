@@ -293,9 +293,12 @@ def _build_backend(cfg: QuantCallConfig) -> Any:
             device=cfg.hf.device,
             torch_dtype=cfg.hf.torch_dtype,
             max_new_tokens=cfg.hf.max_new_tokens,
+            temperature=cfg.temperature,
+            load_in_4bit=cfg.hf.load_in_4bit,
+            load_in_8bit=cfg.hf.load_in_8bit,
         )
     if cfg.backend == "openai":
-        from quantcall.backends.openai_endpoint import OpenAIEndpointBackend  # type: ignore[import]
+        from quantcall.backends.openai_endpoint import OpenAIEndpointBackend
 
         return OpenAIEndpointBackend(
             base_url=cfg.openai.base_url,
