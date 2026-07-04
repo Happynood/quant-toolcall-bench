@@ -309,7 +309,7 @@ def _build_backend(cfg: QuantCallConfig) -> Any:
             api_key_env=cfg.openai.api_key_env,
         )
     if cfg.backend == "vllm":
-        from quantcall.backends.vllm_backend import VLLMBackend  # type: ignore[import]
+        from quantcall.backends.vllm_backend import VLLMBackend
 
         return VLLMBackend(
             model_id=cfg.model,

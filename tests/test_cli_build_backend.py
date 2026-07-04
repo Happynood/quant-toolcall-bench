@@ -72,3 +72,25 @@ def test_build_backend_transformers_dispatches_to_hf_backend(_fake_transformers)
     backend = _build_backend(cfg)
     assert isinstance(backend, HFBackend)
     assert backend.name == "transformers"
+
+
+@pytest.fixture
+def _fake_vllm():
+    llm_instance = MagicMock()
+    llm_cls = MagicMock(return_value=llm_instance)
+    fake_vllm = types.ModuleType("vllm")
+    fake_vllm.LLM = llm_cls  # type: ignore[attr-defined]
+    fake_vllm.SamplingParams = MagicMock()  # type: ignore[attr-defined]
+    sys.modules["vllm"] = fake_vllm
+    yield
+    sys.modules.pop("vllm", None)
+    sys.modules.pop("quantcall.backends.vllm_backend", None)
+
+
+def test_build_backend_vllm_dispatches_to_vllm_backend(_fake_vllm):
+    from quantcall.backends.vllm_backend import VLLMBackend
+
+    cfg = QuantCallConfig(backend="vllm", model="fake/model")
+    backend = _build_backend(cfg)
+    assert isinstance(backend, VLLMBackend)
+    assert backend.name == "vllm"
