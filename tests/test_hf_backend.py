@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import types
 from typing import Any
@@ -112,6 +113,23 @@ def test_hf_backend_name():
 
     backend = HFBackend(model_id="fake/model")
     assert backend.name == "transformers"
+
+
+def test_hf_backend_clears_socks_proxy_env_vars(monkeypatch):
+    """httpx (used by huggingface_hub) rejects a bare socks:// ALL_PROXY value.
+
+    Regression test: constructing HFBackend must not crash when the shell
+    exports ALL_PROXY=socks://... (real failure seen against a live HF Hub
+    fetch), by clearing it before any transformers/huggingface_hub import.
+    """
+    monkeypatch.setenv("ALL_PROXY", "socks://127.0.0.1:12334")
+    monkeypatch.setenv("all_proxy", "socks://127.0.0.1:12334")
+    _install_fake_transformers()
+    from quantcall.backends.hf import HFBackend
+
+    HFBackend(model_id="fake/model")
+    assert "ALL_PROXY" not in os.environ
+    assert "all_proxy" not in os.environ
 
 
 def test_hf_backend_uses_apply_chat_template_with_tools():

@@ -25,6 +25,25 @@ from urllib.request import urlopen
 
 from quantcall.backends.base import Backend, ToolCallResult
 
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+# A proxy-free opener, used for loopback requests only. Python's stdlib
+# no_proxy parsing does not understand CIDR notation (e.g. "127.0.0.0/8"),
+# so a system proxy env var can otherwise silently intercept calls to a
+# local inference server (llama.cpp server, llama_cpp.server, LM Studio,
+# Ollama, ...) that should never leave the machine.
+_no_proxy_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _is_loopback_host(hostname: str | None) -> bool:
+    return hostname in _LOOPBACK_HOSTS or bool(hostname) and hostname.startswith("127.")
+
+
+def _open_url(req: urllib.request.Request, timeout: float) -> Any:
+    if _is_loopback_host(req.host.split(":")[0] if req.host else None):
+        return _no_proxy_opener.open(req, timeout=timeout)
+    return urlopen(req, timeout=timeout)
+
 
 def _tool_call_to_json(tc: dict[str, Any]) -> str:
     fn = tc.get("function", {})
@@ -92,7 +111,7 @@ class OpenAIEndpointBackend(Backend):
 
         try:
             t_start = time.perf_counter()
-            with urlopen(req, timeout=self._timeout_s) as resp:
+            with _open_url(req, timeout=self._timeout_s) as resp:
                 raw = resp.read()
             latency_ms = (time.perf_counter() - t_start) * 1000.0
         except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as exc:

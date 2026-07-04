@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import time
 from typing import Any
@@ -47,6 +48,11 @@ class HFBackend(Backend):
         load_in_4bit: bool = False,
         load_in_8bit: bool = False,
     ) -> None:
+        # httpx (used by huggingface_hub) rejects the bare socks:// proxy scheme
+        # some shells export; drop it so HF Hub falls through to http(s)_proxy.
+        os.environ.pop("ALL_PROXY", None)
+        os.environ.pop("all_proxy", None)
+
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
